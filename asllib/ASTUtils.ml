@@ -98,16 +98,7 @@ let list_fold_left_map f accu l =
   aux accu [] l
 
 (* Straigh out of stdlib v4.10 *)
-let list_concat_map f l =
-  let open List in
-  let rec aux f acc = function
-    | [] -> rev acc
-    | x :: l ->
-        let xs = f x in
-        aux f (rev_append xs acc) l
-  in
-  aux f [] l
-
+let list_concat_map f l = List.concat_map f l
 let pair x y = (x, y)
 let pair' y x = (x, y)
 let pair_equal f g (x1, y1) (x2, y2) = f x1 x2 && g y1 y2
