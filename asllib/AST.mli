@@ -211,7 +211,7 @@ and bitfield =
 and field = identifier * ty
 (** A field of a record-like structure. *)
 
-and typed_identifier = identifier * ty
+and typed_identifier = identifier * 
 (** An identifier declared with its type. *)
 
 (* -------------------------------------------------------------------------
