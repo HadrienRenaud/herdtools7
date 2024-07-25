@@ -781,18 +781,19 @@ module Make (C : Config) = struct
         let v_unknown_of_type = v_unknown_of_type
         let primitives = extra_funcs ii_env
       end in
-      let module Config = struct
-        let type_checking_strictness : Asllib.Typing.strictness =
-          if C.variant (Variant.ASLType `Warn) then `Warn
-          else if C.variant (Variant.ASLType `TypeCheck) then `TypeCheck
-          else `Silence
-
-        let unroll =
+      let () =
+        let open Asllib.Config in
+        typing_strictness :=
+          if C.variant (Variant.ASLType `Warn) then Warn
+          else if C.variant (Variant.ASLType `TypeCheck) then TypeCheck
+          else Silence;
+        default_loop_unrolling :=
           match C.unroll with None -> Opts.unroll_default `ASL | Some u -> u
-
-        module Instr = Asllib.Instrumentation.SemanticsNoInstr
-      end in
-      let module ASLInterpreter = Asllib.Interpreter.Make (ASLBackend) (Config)
+      in
+      let module ASLInterpreter =
+        Asllib.Interpreter.Make
+          (ASLBackend)
+          (Asllib.Instrumentation.SemanticsNoInstr)
       in
       let ast =
         if not (C.variant Variant.ASL_AArch64) then ii.A.inst

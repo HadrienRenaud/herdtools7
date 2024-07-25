@@ -87,7 +87,7 @@ let filter_instr = function
 
 let random_asts (small : bool) config : AST.t Seq.t =
   let asts =
-    let module Generator = RandomAST.Typed ((val config : Config.S)) in
+    let module Generator = RandomAST.Typed ((val config : CConfig.S)) in
     let open QCheck2.Gen in
     let sizes = if small then small_nat else nat in
     sized_size sizes Generator.ast
@@ -100,7 +100,7 @@ let random_asts (small : bool) config : AST.t Seq.t =
 
 let smallests_asts config : AST.t Seq.t =
   let module IFSeq = Feat.Enum.IFSeq in
-  let module Enums = ASTEnums.Make ((val config : Config.S)) in
+  let module Enums = ASTEnums.Make ((val config : CConfig.S)) in
   let asts_of_size n = IFSeq.to_seq (Enums.asts n) Seq.empty in
   Seq.flat_map asts_of_size (Seq.ints 0)
 
@@ -131,7 +131,7 @@ let generalized_fuzz (asts : 'a Seq.t) (on_ast : 'a -> AST.t option) progress o
 
 let random_trees config small =
   let asts =
-    let module Generator = RandomAST.Typed ((val config : Config.S)) in
+    let module Generator = RandomAST.Typed ((val config : CConfig.S)) in
     let open QCheck2.Gen in
     let sizes = if small then small_int else int in
     sized_size sizes Generator.ast
@@ -353,8 +353,8 @@ module Cmd = struct
 
   let common_options =
     let make_config = function
-      | Some f -> Config.Parse.of_file f
-      | None -> Config.default_config
+      | Some f -> CConfig.Parse.of_file f
+      | None -> CConfig.default_config
     in
     let make () () progress config instr o =
       (make_config config, instr, o, progress)
