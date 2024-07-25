@@ -167,6 +167,7 @@ and token = parse
     | '"'                      { string_lit (Buffer.create 16) lexbuf }
     | '\'' (bits as lxm) '\''  { bitvector_lit lxm                }
     | '\'' (mask as lxm) '\''  { mask_lit lxm                     }
+    | '@'                      { ARROBASE                         }
     | '!'                      { BNOT                             }
     | ','                      { COMMA                            }
     | '<'                      { LT                               }

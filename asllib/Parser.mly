@@ -69,14 +69,14 @@ let make_ty_decl_subtype (x, s) =
 
   ------------------------------------------------------------------------- *)
 
-%token AND ARRAY ARROW AS ASSERT BAND BEGIN BEQ BIT BITS BNOT BOOLEAN BOR CASE
-%token CATCH COLON COLON_COLON COMMA CONCAT CONFIG CONSTANT DEBUG DIV DIVRM DO
-%token DOT DOWNTO ELSE ELSIF END ENUMERATION EOF EOR EQ EQ_OP EXCEPTION FOR
-%token FUNC GEQ GETTER GT IF IMPL IN INTEGER LBRACE LBRACKET LEQ LET LPAR LT
-%token MINUS MOD MUL NEQ NOT OF OR OTHERWISE PASS PLUS PLUS_COLON POW PRAGMA
-%token PRINT RBRACE RBRACKET RDIV REAL RECORD REPEAT RETURN RPAR STAR_COLON
-%token SEMI_COLON SETTER SHL SHR SLICING STRING SUBTYPES THEN THROW TO TRY TYPE
-%token UNKNOWN UNTIL VAR WHEN WHERE WHILE WITH
+%token AND ARRAY ARROBASE ARROW AS ASSERT BAND BEGIN BEQ BIT BITS BNOT BOOLEAN
+%token BOR CASE CATCH COLON COLON_COLON COMMA CONCAT CONFIG CONSTANT DEBUG DIV
+%token DIVRM DO DOT DOWNTO ELSE ELSIF END ENUMERATION EOF EOR EQ EQ_OP
+%token EXCEPTION FOR FUNC GEQ GETTER GT IF IMPL IN INTEGER LBRACE LBRACKET LEQ
+%token LET LPAR LT MINUS MOD MUL NEQ NOT OF OR OTHERWISE PASS PLUS PLUS_COLON
+%token POW PRAGMA PRINT RBRACE RBRACKET RDIV REAL RECORD REPEAT RETURN RPAR
+%token STAR_COLON SEMI_COLON SETTER SHL SHR SLICING STRING SUBTYPES THEN THROW
+%token TO TRY TYPE UNKNOWN UNTIL VAR WHEN WHERE WHILE WITH
 
 %token <string> IDENTIFIER STRING_LIT
 %token <Bitvector.mask> MASK_LIT
@@ -471,13 +471,14 @@ let alt == annotated (
 let otherwise == OTHERWISE; ARROW; stmt_list
 let otherwise_opt == ioption(otherwise)
 let catcher == WHEN; ~=ioption(terminated(IDENTIFIER, COLON)); ~=ty; ARROW; ~=stmt_list; <>
+let loop_annot == ioption(ARROBASE; IDENTIFIER; plist(expr))
 
 let stmt ==
   annotated (
     | terminated_by(END,
       | IF; e=expr; THEN; s1=stmt_list; s2=s_else;    <S_Cond>
       | CASE; ~=expr; OF; alt=list(alt);              <S_Case>
-      | WHILE; ~=expr; DO; ~=stmt_list;               <S_While>
+      | loop_annot; WHILE; ~=expr; DO; ~=stmt_list;   <S_While>
       | FOR; id=IDENTIFIER; EQ; e1=expr;
         d=direction; e2=expr; DO; s=stmt_list;        <S_For>
       | TRY; s=stmt_list; CATCH; c=nonempty_list(catcher); o=otherwise_opt; < S_Try >
@@ -493,7 +494,7 @@ let stmt ==
       | VAR; ~=clist2(IDENTIFIER); ~=as_ty;                  < make_ldi_vars >
       | PRINT; args=plist(expr);                             { S_Print { args; debug = false } }
       | DEBUG; args=plist(expr);                             { S_Print { args; debug = true } }
-      | REPEAT; ~=stmt_list; UNTIL; ~=expr;                  < S_Repeat >
+      | loop_annot; REPEAT; ~=stmt_list; UNTIL; ~=expr;      < S_Repeat >
       | THROW; e=expr;                                       { S_Throw (Some (e, None)) }
       | THROW;                                               { S_Throw None             }
 
@@ -525,7 +526,8 @@ let return_type == ARROW; ty
 let params_opt == { [] } | braced(clist(opt_type_identifier))
 let access_args == bracketed(clist(typed_identifier))
 let func_args == plist(typed_identifier)
-let func_body == delimited(ioption(BEGIN), stmt_list, END)
+let stmt_list_opt == stmt_list | annotated({ S_Pass })
+let func_body == delimited(ioption(BEGIN), stmt_list_opt, END)
 let ignored_or_identifier ==
   | MINUS; { global_ignored () }
   | IDENTIFIER
