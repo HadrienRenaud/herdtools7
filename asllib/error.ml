@@ -86,17 +86,16 @@ let error_handling_time_to_string = function
   | Static -> "Static"
   | Dynamic -> "Dynamic"
 
-let pp_error =
-  let open Format in
-  let open PP in
+module PPrint = struct
+  open Format
+  open PP
+
   let pp_comma_list pp_elt f li =
     pp_print_list ~pp_sep:(fun f () -> fprintf f ",@ ") pp_elt f li
-  in
-  let pp_type_desc f ty = pp_ty f (ASTUtils.add_dummy_pos ty) in
-  fun f e ->
-    pp_open_vbox f 0;
-    if e.pos_end != Lexing.dummy_pos && e.pos_start != Lexing.dummy_pos then
-      fprintf f "@[<h>%a:@]@ " pp_pos e;
+
+  let pp_type_desc f ty = pp_ty f (ASTUtils.add_dummy_pos ty)
+
+  let pp_error_desc f e =
     pp_open_hovbox f 2;
     (match e.desc with
     | UnsupportedBinop (t, op, v1, v2) ->
@@ -255,11 +254,48 @@ let pp_error =
           "ASL Typing error:@ cannot@ return@ nothing@ from@ a@ function,@ an@ \
            expression@ of@ type@ %a@ is@ expected."
           pp_ty t);
-    pp_close_box f ();
     pp_close_box f ()
 
-let error_to_string = Format.asprintf "%a" pp_error
-let eprintln = Format.eprintf "@[<2>%a@]@." pp_error
+  let pp_error f e =
+    pp_open_vbox f 0;
+    if e.pos_end != Lexing.dummy_pos && e.pos_start != Lexing.dummy_pos then
+      fprintf f "@[<h>%a:@]@ " pp_pos e;
+    pp_error_desc f e;
+    pp_close_box f ()
+
+  let error_desc_to_string = asprintf "%a" pp_error_desc
+
+  let error_desc_to_string_inf =
+    asprintf "%a" @@ fun f e ->
+    pp_set_margin f pp_infinity;
+    pp_error_desc f e
+
+  let escape s =
+    let b = Buffer.create (String.length s) in
+    String.iter
+      (function
+        | '"' ->
+            Buffer.add_char b '"';
+            Buffer.add_char b '"'
+        | c -> Buffer.add_char b c)
+      s;
+    Buffer.contents b
+
+  let pp_error_csv f e =
+    let pos_in_line pos = Lexing.(pos.pos_cnum - pos.pos_bol) in
+    fprintf f "@[\"%s\",%d,%d,%d,%d,\"%s\"@]"
+      (escape e.pos_start.pos_fname)
+      e.pos_start.pos_lnum (pos_in_line e.pos_start) e.pos_end.pos_lnum
+      (pos_in_line e.pos_end)
+      (error_desc_to_string_inf e |> escape)
+
+  let error_to_string = asprintf "%a" pp_error
+
+  (* let eprintln = eprintf "@[<2>%a@]@." pp_error *)
+  let eprintln = eprintf "@[<2>%a@]@." pp_error_csv
+end
+
+include PPrint
 
 let () =
   Printexc.register_printer @@ function

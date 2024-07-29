@@ -187,6 +187,11 @@ let () =
 
   let () = if false then Format.eprintf "%a@." PP.pp_t ast in
 
+  let () =
+    if true then
+      Format.eprintf
+        {|"File","Start line","Start col","End line","End col","Exception"@.|}
+  in
   let typed_ast, static_env =
     or_exit @@ fun () ->
     Typing.type_check_ast args.strictness ast StaticEnv.empty
