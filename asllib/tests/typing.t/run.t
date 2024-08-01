@@ -51,14 +51,13 @@ Use of global vars in constraints
     provided integer {16}.
   [1]
   $ aslref --no-exec TPositive4-2.asl
-  File TPositive4-2.asl, line 20, characters 4 to 53:
-  ASL Typing error: a subtype of integer {0..LET_ALLOWED_NUMS_C} was expected,
-    provided integer {3}.
+  File TPositive4-2.asl, line 24, characters 4 to 54:
+  ASL Typing error: a subtype of integer {CONFIG_ALLOWED_NUMS} was expected,
+    provided integer {16}.
   [1]
   $ aslref --no-exec TPositive4-3.asl
-  File TPositive4-3.asl, line 22, characters 4 to 57:
-  ASL Typing error: a subtype of integer {0..16} was expected,
-    provided integer {0..LET_ALLOWED_NUMS_C}.
+  File TPositive4-3.asl, line 25, characters 25 to 44:
+  ASL Error: Undefined identifier: 'CONFIG_ALLOWED_NUMS'
   [1]
   $ aslref --no-exec TPositive4-4.asl
   File TPositive4-4.asl, line 25, characters 4 to 54:
@@ -149,7 +148,7 @@ Bit vector widths defined by constrained integers
   $ aslref --no-exec TNegative9-1.asl
   File TNegative9-1.asl, line 3, characters 4 to 59:
   ASL Typing error: a subtype of bits(N) was expected,
-    provided bits((N * (3 DIV 4))).
+    provided bits(((3 * N) DIV 4)).
   [1]
   $ aslref --no-exec TNegative9-2.asl
   File TNegative9-2.asl, line 3, characters 4 to 35:
@@ -187,7 +186,7 @@ Complex symbolic execution of bit vector widths expressions
   $ aslref --no-exec TPositive11.asl
   File TPositive11.asl, line 11, characters 4 to 64:
   ASL Typing error: a subtype of bits(numBits) was expected,
-    provided bits((numBytes * 8)).
+    provided bits((8 * numBytes)).
   [1]
   $ aslref --no-exec TPositive11-0.asl
   $ aslref --no-exec TPositive11-1.asl
@@ -269,7 +268,7 @@ C Tests
   $ aslref --no-exec CPositive6.asl
   $ aslref --no-exec CPositive7.asl
   File CPositive7.asl, line 4, characters 4 to 31:
-  ASL Typing error: a subtype of integer {0..(N * 2)} was expected,
+  ASL Typing error: a subtype of integer {0..(2 * N)} was expected,
     provided integer {0..N}.
   [1]
   $ aslref --no-exec CPositive9.asl
