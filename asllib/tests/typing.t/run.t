@@ -106,6 +106,7 @@ Named types
   ASL Typing error: a subtype of MyOtherSizes was expected,
     provided MyBitsSizes.
   [1]
+  $ aslref --no-exec KPositive01.asl
 
 Loops
   $ aslref --no-exec TPositive8.asl
