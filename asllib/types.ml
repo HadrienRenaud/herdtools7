@@ -182,6 +182,8 @@ module Domain = struct
   (* |: TypingRule.Domain *)
   (* End *)
 
+  let from_syntax cs = FromSyntax (List.sort compare cs)
+
   let add_interval_to_intset acc bot top =
     if bot > top then acc
     else
@@ -249,7 +251,7 @@ module Domain = struct
             (List.fold_left
                (add_constraint_to_intset env)
                IntSet.empty constraints)
-        with StaticEvaluationTop -> FromSyntax constraints)
+        with StaticEvaluationTop -> from_syntax constraints)
   (* End *)
 
   (* Begin IntSetToIntConstraints *)
@@ -278,16 +280,16 @@ module Domain = struct
         with StaticEvaluationTop ->
           let s1 = int_set_to_int_constraints is1
           and s2 = int_set_to_int_constraints is2 in
-          int_set_raise_interval_op fop op (FromSyntax s1) (FromSyntax s2))
+          int_set_raise_interval_op fop op (from_syntax s1) (from_syntax s2))
     | Finite is1, FromSyntax _ ->
         let s1 = int_set_to_int_constraints is1 in
-        int_set_raise_interval_op fop op (FromSyntax s1) is2
+        int_set_raise_interval_op fop op (from_syntax s1) is2
     | FromSyntax _, Finite is2 ->
         let s2 = int_set_to_int_constraints is2 in
-        int_set_raise_interval_op fop op is1 (FromSyntax s2)
+        int_set_raise_interval_op fop op is1 (from_syntax s2)
     | FromSyntax s1, FromSyntax s2 -> (
         match constraint_binop op s1 s2 with
-        | WellConstrained s2 -> FromSyntax s2
+        | WellConstrained s2 -> from_syntax s2
         | _ -> Top)
   (* End *)
 

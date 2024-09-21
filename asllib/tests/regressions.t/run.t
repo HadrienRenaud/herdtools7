@@ -340,6 +340,7 @@ Required tests:
   $ aslref subtypes-with.asl
   $ aslref tuples.asl
   $ aslref --no-type-check -0 typing-assign-v0.asl
+  $ aslref --no-exec reorder-constraints.asl
 
   $ aslref undeclared-variable.asl
   File undeclared-variable.asl, line 3, characters 2 to 5:
