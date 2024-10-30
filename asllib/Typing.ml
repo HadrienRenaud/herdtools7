@@ -2322,7 +2322,7 @@ module Annotate (C : ANNOTATE_CONFIG) : S = struct
     fun env v ldi -> add_constants v env ldi
   (* End *)
 
-  let rec annotate_stmt env s =
+  let rec annotate_stmt env s : stmt * env =
     let () =
       if false then
         match s.desc with
@@ -2903,6 +2903,77 @@ module Annotate (C : ANNOTATE_CONFIG) : S = struct
     |: TypingRule.AnnotateFuncSig
   (* End *)
 
+  module ControlFlow : sig
+    val check_stmt_interrupts : identifier -> env -> stmt_desc annotated -> prop
+    (** [check_stmt_interrupts name env body] checks that the function named
+        [name] with the statement body [body] returns a value or throws an
+        exception. *)
+  end = struct
+    (** Possible Control-Flow actions of a statement. *)
+    type t =
+      | Nothing  (** Continuing simply to the next statement. *)
+      | Interrupt  (** Throwing an exception or returning a value. *)
+      | Unreachable  (** Assertion that this control-flow path is un-used. *)
+
+    (** Sequencial combination of two control flows. *)
+    let seq t1 t2 = if t1 = Nothing then t2 else t1
+
+    (** [guard env e t1 t2] correspond to the conditional combination of [t1]
+        and [t2], guarded by [e] symbolically interpreted in [env].
+
+        This roughly corresponds to the pseudocode [if e then {t1} else {t2}].
+    *)
+    let guard env e t1 t2 =
+      match StaticModel.normalize_to_bool_opt env e with
+      | Some true -> t1
+      | Some false -> t2
+      | None -> (
+          match (t1, t2) with
+          | Nothing, _ | _, Nothing -> Nothing
+          | Unreachable, t | t, Unreachable ->
+              t (* Assertion that the condition always holds *)
+          | Interrupt, Interrupt -> Interrupt)
+
+    (** [check_interrupts ~loc name t] checks that the function [name] whose
+        body has the control flow behaviour [t] return something or throws an
+        exception. *)
+    let check_interrupts ~loc name t () =
+      match t with
+      | Unreachable | Interrupt -> ()
+      | Nothing -> fatal_from loc (Error.NonReturningFunction name)
+
+    (** [get_from_stmt env s] builds the control-flow analysis on [s] in [env].
+    *)
+    let rec from_stmt env s =
+      match s.desc with
+      | S_Pass | S_Decl _ | S_Assign _ | S_Assert _ | S_Call _ | S_Print _ ->
+          Nothing
+      | S_Unreachable -> Unreachable
+      | S_Return _ | S_Throw _ -> Interrupt
+      | S_Seq (s1, s2) -> seq (from_stmt env s1) (from_stmt env s2)
+      | S_Cond (e, s1, s2) -> guard env e (from_stmt env s1) (from_stmt env s2)
+      | S_While (e, _, body) -> guard env e (from_stmt env body) Nothing
+      | S_Repeat (body, _, _) -> from_stmt env body
+      | S_Try (body, _, _) -> from_stmt env body
+      | S_For { dir; start_e; end_e; body } ->
+          let cond =
+            match dir with
+            | Up -> binop LEQ start_e end_e
+            | Down -> binop GEQ start_e end_e
+          in
+          guard env cond (from_stmt env body) Nothing
+      | S_Case (_, _) -> (* Should be unsugared, so only for v0 *) Unreachable
+
+    (** [guard env e t1 t2] correspond to the conditional combination of [t1]
+        and [t2], guarded by [e] symbolically interpreted in [env].
+
+        This roughly corresponds to the pseudocode [if e then {t1} else {t2}].
+    *)
+    let check_stmt_interrupts name env s () =
+      let ctl = from_stmt env s in
+      check_interrupts ~loc:s name ctl ()
+  end
+
   (* Begin Subprogram *)
   let annotate_subprogram (env : env) (f : AST.func) : AST.func =
     let () =
@@ -2914,6 +2985,11 @@ module Annotate (C : ANNOTATE_CONFIG) : S = struct
       match f.body with SB_ASL body -> body | SB_Primitive -> assert false
     in
     let new_body = try_annotate_block env body in
+    let+ () =
+      match f.return_type with
+      | None -> ok
+      | Some _ -> ControlFlow.check_stmt_interrupts f.name env new_body
+    in
     { f with body = SB_ASL new_body } |: TypingRule.Subprogram
   (* End *)
 
