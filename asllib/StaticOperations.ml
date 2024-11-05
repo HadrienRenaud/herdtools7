@@ -4,107 +4,41 @@ open ASTUtils
 let exact e = Constraint_Exact e
 let range a b = Constraint_Range (a, b)
 
-let constraint_plus c1 c2 =
-  let plus = binop PLUS in
-  match (c1, c2) with
-  | Constraint_Exact a, Constraint_Exact c -> exact (plus a c)
-  | Constraint_Exact a, Constraint_Range (c, d) -> range (plus a c) (plus a d)
-  | Constraint_Range (a, b), Constraint_Exact c -> range (plus a c) (plus b c)
-  | Constraint_Range (a, b), Constraint_Range (c, d) ->
-      range (plus a c) (plus b d)
-
-let constraint_minus c1 c2 =
-  let minus = binop MINUS in
-  match (c1, c2) with
-  | Constraint_Exact a, Constraint_Exact c -> exact (minus a c)
-  | Constraint_Exact a, Constraint_Range (c, d) -> range (minus a d) (minus a c)
-  | Constraint_Range (a, b), Constraint_Exact c -> range (minus a c) (minus b c)
-  | Constraint_Range (a, b), Constraint_Range (c, d) ->
-      range (minus a d) (minus b c)
-
 let constraint_mod = function
   | Constraint_Exact e | Constraint_Range (_, e) -> range zero_expr e
 
-let constraint_divisions op c1 c2 =
-  let div = binop op in
-  match (c1, c2) with
-  | Constraint_Exact a, Constraint_Exact c -> [ exact (div a c) ]
-  | Constraint_Range (a, b), Constraint_Exact c -> [ range (div a c) (div b c) ]
-  | Constraint_Exact a, Constraint_Range (_c, d) ->
-      (* {a} DIV {b..c} == {a .. (a DIV c), (a DIV c) .. a} *)
-      [ range a (div a d); range (div a d) a ]
-  | Constraint_Range (a, b), Constraint_Range (_c, _d) ->
-      (* {a..b} DIV {c..d} == {a..-1, 0, 1..b} *)
-      [ range a minus_one_expr; exact zero_expr; range one_expr b ]
+let possible_extremities_left op a b =
+  match op with
+  | MUL -> [ (a, a); (a, b); (b, a); (b, b) ]
+  | DIV | DIVRM | PLUS | MINUS | SHR | SHL -> [ (a, b) ]
+  | _ -> assert false
 
-let constraint_mult c1 c2 =
-  let mul = binop MUL in
+let possible_extremities_right op c d =
+  match op with
+  | PLUS -> [ (c, d) ]
+  | MINUS -> [ (d, c) ]
+  | MUL -> [ (c, c); (c, d); (d, c); (d, d) ]
+  | SHR -> [ (d, zero_expr); (zero_expr, d) ]
+  | SHL -> [ (c, d); (zero_expr, d); (d, zero_expr); (d, c) ]
+  | DIV | DIVRM -> [ (one_expr, d); (d, one_expr) ]
+  | _ -> assert false
+
+let apply_binop_extremities op c1 c2 =
   match (c1, c2) with
-  | Constraint_Exact a, Constraint_Exact c -> [ exact (mul a c) ]
+  | Constraint_Exact a, Constraint_Exact c -> [ exact (binop op a c) ]
   | Constraint_Range (a, b), Constraint_Exact c ->
-      (* {a..b} MUL c is {(a MUL c) .. (b MUL c), (b MUL c) .. (a MUL c)} *)
-      [ range (mul a c) (mul b c); range (mul b c) (mul a c) ]
+      List.map
+        (fun (a', b') -> range (binop op a' c) (binop op b' c))
+        (possible_extremities_left op a b)
   | Constraint_Exact a, Constraint_Range (c, d) ->
-      (* a MUL {c..d} is {(a MUL c) .. (a MUL d), (a MUL d) .. (a MUL c)} *)
-      [ range (mul a c) (mul a d); range (mul a d) (mul a c) ]
+      List.map
+        (fun (c', d') -> range (binop op a c') (binop op a d'))
+        (possible_extremities_right op c d)
   | Constraint_Range (a, b), Constraint_Range (c, d) ->
-      let ac = mul a c and bd = mul b d and ad = mul a d and bc = mul b c in
-      (* {a..b} MUL {c..d} is { *)
-      [
-        (* (a MUL c) .. (b MUL d), *)
-        range ac bd;
-        (* (a MUL d) .. (b MUL c), *)
-        range ad bc;
-        (* (a MUL d) .. (b MUL d), *)
-        range ad bd;
-        (* (a MUL d) .. (a MUL c), *)
-        range ad ac;
-        (* (b MUL c) .. (a MUL d), *)
-        range bc ad;
-        (* (b MUL c) .. (b MUL d), *)
-        range bc bd;
-        (* (b MUL c) .. (a MUL c), *)
-        range bc ac;
-        (* (b MUL d) .. (a MUL c) *)
-        range bd ac;
-        (* } *)
-      ]
-
-let constraint_shr c1 c2 =
-  let shr = binop SHR in
-  match (c1, c2) with
-  | Constraint_Exact a, Constraint_Exact c -> [ exact (shr a c) ]
-  | Constraint_Range (a, b), Constraint_Exact c ->
-      (* {a..b} SHR c is {(a SHR c) .. (b SHR c)} *)
-      [ range (shr a c) (shr b c) ]
-  | Constraint_Exact a, Constraint_Range (_c, d) ->
-      (* a SHR {c..d} is {a .. (a SHR d), (a SHR d) .. a}. *)
-      [ range a (shr a d); range (shr a d) a ]
-  | Constraint_Range (a, b), Constraint_Range (_c, _d) ->
-      (* {a..b} SHR {c..d} is {a..0, 0..b} *)
-      [ range a zero_expr; range zero_expr b ]
-
-let constraint_shl c1 c2 =
-  let shl = binop SHL in
-  match (c1, c2) with
-  | Constraint_Exact a, Constraint_Exact c -> [ exact (shl a c) ]
-  | Constraint_Range (a, b), Constraint_Exact c ->
-      (* {a..b} SHL c is {(a SHL c) .. (b SHL c)}. *)
-      [ range (shl a c) (shl b c) ]
-  | Constraint_Exact a, Constraint_Range (c, d) ->
-      (* a SHL {c...d} is {
-         (a SHL c) .. (a SHL d), a..(a SHL d),
-         (a SHL d) .. (a SHL c), (a SHL d) ..a} *)
-      let ac = shl a c and ad = shl a d in
-      [ range ac ad; range a ad; range ad ac; range ad a ]
-  | Constraint_Range (a, b), Constraint_Range (c, d) ->
-      (* {a..b} SHL {c..d} is {
-           (a SHL c) .. (b SHL d), a .. (b SHL d),
-            (a SHL d) .. (b SHL d),
-            (a SHL d) .. (b SHL c), (a SHL d) ..b,
-         } *)
-      let ac = shl a c and bd = shl b d and ad = shl a d and bc = shl b c in
-      [ range ac bd; range a bd; range ad bd; range ad bc; range ad b ]
+      list_cross
+        (fun (a', b') (c', d') -> range (binop op a' c') (binop op b' d'))
+        (possible_extremities_left op a b)
+        (possible_extremities_right op c d)
 
 let constraint_pow c1 c2 =
   let pow = binop POW and neg = unop NEG in
@@ -132,13 +66,9 @@ let constraint_pow c1 c2 =
 (* Begin ConstraintBinop *)
 let constraint_binop op cs1 cs2 =
   match op with
-  | PLUS -> list_cross constraint_plus cs1 cs2
-  | MINUS -> list_cross constraint_minus cs1 cs2
-  | DIV | DIVRM -> list_flat_cross (constraint_divisions op) cs1 cs2
-  | MUL -> list_flat_cross constraint_mult cs1 cs2
-  | SHR -> list_flat_cross constraint_shr cs1 cs2
+  | DIV | DIVRM | MUL | PLUS | MINUS | SHR | SHL ->
+      list_flat_cross (apply_binop_extremities op) cs1 cs2
   | MOD -> List.map constraint_mod cs2
-  | SHL -> list_flat_cross constraint_shl cs1 cs2
   | POW -> list_flat_cross constraint_pow cs1 cs2
   | AND | BAND | BEQ | BOR | EOR | EQ_OP | GT | GEQ | IMPL | LT | LEQ | NEQ | OR
   | RDIV ->
