@@ -2087,8 +2087,10 @@ module Annotate (C : ANNOTATE_CONFIG) : S = struct
                   | None -> fatal_from ~loc (Error.BadField (field, t_e2))
                   | Some slices -> slices
                 in
-                E_Slice (e1, list_concat_map one_field fields)
-                |> here |> annotate_expr env |: TypingRule.EGetFields
+                let slices' = list_concat_map one_field fields in
+                let w = slices_width env slices' in
+                (T_Bits (w, []) |> here, E_Slice (e2, slices') |> here, ses1)
+                |: TypingRule.EGetFields
             | T_Record tfields ->
                 let get_bitfield_width name =
                   match List.assoc_opt name tfields with
