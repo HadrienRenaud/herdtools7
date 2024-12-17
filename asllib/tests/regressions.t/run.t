@@ -410,8 +410,9 @@ ASLRef Field getter extension
   $ aslref --use-field-getter-extension pstate-exp.asl
   $ aslref atc-in-types.asl
   File atc-in-types.asl, line 1, characters 14 to 29:
-  ASL Typing error: a pure expression was expected, found 1 as integer {2},
-    which produces the following side-effects: [PerformsAssertions].
+  ASL Typing error: a statically-evaluable expression was expected,
+    found 1 as integer {2}, which produces the following side-effects:
+    [PerformsAssertions].
   [1]
   $ aslref single-slice.asl
 

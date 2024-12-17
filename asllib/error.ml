@@ -55,6 +55,8 @@ type error_desc =
   | BadTypesForBinop of binop * ty * ty
   | CircularDeclarations of string
   | ImpureExpression of expr * SideEffect.SES.t
+  | NonStaticallyEvaluable of expr * SideEffect.SES.t
+  | NonDeterministicExpression of expr * SideEffect.SES.t
   | UnreconciliableTypes of ty * ty
   | AssignToImmutable of string
   | AlreadyDeclaredIdentifier of string
@@ -155,6 +157,8 @@ let error_label = function
   | BadTypesForBinop _ -> "BadTypesForBinop"
   | CircularDeclarations _ -> "CircularDeclarations"
   | ImpureExpression _ -> "ImpureExpression"
+  | NonStaticallyEvaluable _ -> "NonStaticallyEvaluable"
+  | NonDeterministicExpression _ -> "NonDeterministicExpression"
   | UnreconciliableTypes _ -> "UnreconciliableTypes"
   | AssignToImmutable _ -> "AssignToImmutable"
   | AlreadyDeclaredIdentifier _ -> "AlreadyDeclaredIdentifier"
@@ -325,6 +329,16 @@ module PPrint = struct
           "ASL Evaluation error: circular definition of constants, including \
            %S."
           x
+    | NonStaticallyEvaluable (e, ses) ->
+        fprintf f
+          "ASL Typing error:@ a statically-evaluable expression was expected,@ \
+           found %a,@ which@ produces@ the@ following@ side-effects:@ %a."
+          pp_expr e SideEffect.SES.pp_print ses
+    | NonDeterministicExpression (e, ses) ->
+        fprintf f
+          "ASL Typing error:@ a deterministic expression was expected,@ found \
+           %a,@ which@ produces@ the@ following@ side-effects:@ %a."
+          pp_expr e SideEffect.SES.pp_print ses
     | ImpureExpression (e, ses) ->
         fprintf f
           "ASL Typing error:@ a pure expression was expected,@ found %a,@ \

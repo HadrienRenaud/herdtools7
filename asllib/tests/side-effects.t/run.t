@@ -120,8 +120,8 @@
   [1]
   $ aslref for-unknown.asl
   File for-unknown.asl, line 8, characters 15 to 25:
-  ASL Typing error: a pure expression was expected, found unknown(), which
-    produces the following side-effects: [NonDeterministic].
+  ASL Typing error: a deterministic expression was expected, found unknown(),
+    which produces the following side-effects: [NonDeterministic].
   [1]
 
   $ aslref config-uses-var.asl
@@ -185,24 +185,26 @@
   $ aslref type-read-let.asl
   $ aslref type-read-local.asl
   File type-read-local.asl, line 5, characters 18 to 19:
-  ASL Typing error: a pure expression was expected, found x, which produces the
-    following side-effects: [ReadsLocal "x"].
+  ASL Typing error: a statically-evaluable expression was expected, found x,
+    which produces the following side-effects: [ReadsLocal "x"].
   [1]
   $ aslref type-read-local-let.asl
   $ aslref type-read.asl
   File type-read.asl, line 3, characters 19 to 20:
-  ASL Typing error: a pure expression was expected, found X, which produces the
-    following side-effects: [ReadsGlobal "X"].
+  ASL Typing error: a statically-evaluable expression was expected, found X,
+    which produces the following side-effects: [ReadsGlobal "X"].
   [1]
   $ aslref type-write.asl
   File type-write.asl, line 10, characters 19 to 29:
-  ASL Typing error: a pure expression was expected, found write_X(), which
-    produces the following side-effects: [ReadsGlobal "X", WritesGlobal "X"].
+  ASL Typing error: a statically-evaluable expression was expected,
+    found write_X(), which produces the following side-effects:
+    [ReadsGlobal "X", WritesGlobal "X"].
   [1]
   $ aslref type-unknown.asl
   File type-unknown.asl, line 8, characters 23 to 33:
-  ASL Typing error: a pure expression was expected, found unknown(), which
-    produces the following side-effects: [NonDeterministic].
+  ASL Typing error: a statically-evaluable expression was expected,
+    found unknown(), which produces the following side-effects:
+    [NonDeterministic].
   [1]
   $ aslref type-func-atc.asl
   File type-func-atc.asl, line 3, characters 9 to 10:
@@ -212,13 +214,14 @@
   $ aslref type-func-local-var.asl
   $ aslref type-local-var.asl
   File type-local-var.asl, line 5, characters 15 to 16:
-  ASL Typing error: a pure expression was expected, found x, which produces the
-    following side-effects: [ReadsLocal "x"].
+  ASL Typing error: a statically-evaluable expression was expected, found x,
+    which produces the following side-effects: [ReadsLocal "x"].
   [1]
   $ aslref type-throw.asl
   File type-throw.asl, line 8, characters 19 to 30:
-  ASL Typing error: a pure expression was expected, found throwing(), which
-    produces the following side-effects: [ThrowsException "E"].
+  ASL Typing error: a statically-evaluable expression was expected,
+    found throwing(), which produces the following side-effects:
+    [ThrowsException "E"].
   [1]
 
   $ aslref assert-atc.asl
@@ -288,8 +291,9 @@
   [1]
   $ aslref rec-local-type.asl
   File rec-local-type.asl, line 12, characters 16 to 23:
-  ASL Typing error: a pure expression was expected, found foo(0), which
-    produces the following side-effects: [CallsRecursive "foo"].
+  ASL Typing error: a statically-evaluable expression was expected,
+    found foo(0), which produces the following side-effects:
+    [CallsRecursive "foo"].
   [1]
   $ aslref rec-binop-rec.asl
   File rec-binop-rec.asl, line 9, characters 10 to 35:

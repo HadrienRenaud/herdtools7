@@ -569,14 +569,14 @@ module Annotate (C : ANNOTATE_CONFIG) : S = struct
       () |: TypingRule.CheckStaticallyEvaluable
     else
       fatal_from ~loc:expr_for_error
-        (Error.ImpureExpression (expr_for_error, ses))
+        (Error.NonStaticallyEvaluable (expr_for_error, ses))
   (* End *)
 
   let check_is_deterministic expr_for_error ses () =
     if SES.is_deterministic ses then ()
     else
       fatal_from ~loc:expr_for_error
-        (Error.ImpureExpression (expr_for_error, ses))
+        (Error.NonDeterministicExpression (expr_for_error, ses))
 
   let check_is_pure expr_for_error ses () =
     if SES.is_pure ses then ()
@@ -2363,7 +2363,7 @@ module Annotate (C : ANNOTATE_CONFIG) : S = struct
         (match t_e.desc with
         | T_Tuple tys ->
             if List.compare_lengths tys les != 0 then
-              Error.fatal_from le
+              fatal_from ~loc:le
                 (Error.BadArity
                    (Static, "LEDestructuring", List.length tys, List.length les))
             else
