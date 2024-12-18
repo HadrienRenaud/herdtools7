@@ -29,12 +29,12 @@ func AArch64_DecodeDescriptorType
     =>
   DescriptorType
 begin
-  if descriptor[0] == '0' then
+  // if descriptor[0] == '0' then
 //    __DEBUG__(descriptor,DescriptorType_Invalid);
-    return DescriptorType_Invalid;
-  else
+    // return DescriptorType_Invalid;
+  // else
     return DescriptorType_Leaf;
-  end;
+  // end;
 end;
 
 // FetchDescriptor()
@@ -329,4 +329,31 @@ begin
   memattrs.notagaccess = FALSE;
   memattrs.shareability = Shareability_ISH;
   return memattrs;
+end;
+
+
+// AArch64.S1ApplyOutputPerms()
+// ============================
+// Apply output permissions encoded in stage 1 page/block descriptors
+
+// Permissions AArch64.S1ApplyOutputPerms(Permissions permissions_in, bits(N) descriptor,
+//                                        Regime regime, S1TTWParams walkparams)
+
+func AArch64_S1ApplyOutputPerms{N}(permissions_in: Permissions, descriptor: bits(N) , regime: Regime, walkparams: S1TTWParams) => Permissions
+begin
+  return permissions_in;
+end;
+
+// AArch64.S1CheckPermissions()
+// ============================
+// Checks whether stage 1 access violates permissions of target memory
+// and returns a fault record
+
+// FaultRecord AArch64.S1CheckPermissions(fault_in: FaultRecord, regime: Regime, walkstate: TTWState,
+//                                        walkparams: S1TTWParams, accdesc: AccessDescriptor)
+
+func AArch64_S1CheckPermissions(fault_in: FaultRecord, regime: Regime, walkstate: TTWState,
+                                        walkparams: S1TTWParams, accdesc: AccessDescriptor) => FaultRecord
+begin
+  return fault_in;
 end;
