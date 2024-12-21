@@ -341,24 +341,33 @@ module Make (Conf : Config) = struct
             Warn.fatal "Cannot concretise symbolic value %s as a boolean"
               (V.pp_v (V.Val c))
 
+    let logor v1 v2 =
+      match (v1, v2) with
+      | V.Val (Constant.Concrete (ASLScalar.S_BitVector bv)), v
+        when Asllib.Bitvector.is_zeros bv ->
+          return v
+      | v, V.Val (Constant.Concrete (ASLScalar.S_BitVector bv))
+        when Asllib.Bitvector.is_zeros bv ->
+          return v
+      | _ -> M.op Op.Or v1 v2
+
+    let boolop herdop shortcut v1 v2 =
+      match (v1, v2) with
+      | V.Val (Constant.Concrete (ASLScalar.S_Bool b)), v
+      | v, V.Val (Constant.Concrete (ASLScalar.S_Bool b)) ->
+          return @@ shortcut b v
+      | _ -> M.op herdop v1 v2
+
     let binop =
       let open AST in
       let to_bool op v1 v2 = op v1 v2 >>= M.op1 (Op.ArchOp1 ASLOp.ToBool) in
-      let or_ v1 v2 =
-        match (v1, v2) with
-        | V.Val (Constant.Concrete (ASLScalar.S_BitVector bv)), v
-          when Asllib.Bitvector.is_zeros bv ->
-            return v
-        | v, V.Val (Constant.Concrete (ASLScalar.S_BitVector bv))
-          when Asllib.Bitvector.is_zeros bv ->
-            return v
-        | _ -> M.op Op.Or v1 v2
-      in
+      let v_true = V.Val (Constant.Concrete (ASLScalar.S_Bool true))
+      and v_false = V.Val (Constant.Concrete (ASLScalar.S_Bool false)) in
       function
       | AND -> M.op Op.And
-      | BAND -> M.op Op.And
+      | BAND -> boolop Op.And (fun b v -> if b then v else v_false)
       | BEQ -> M.op Op.Eq |> to_bool
-      | BOR -> M.op Op.Or
+      | BOR -> boolop Op.Or (fun b v -> if b then v_true else v)
       | DIV -> M.op Op.Div
       | MOD -> M.op Op.Rem
       | DIVRM -> M.op (Op.ArchOp ASLOp.Divrm)
@@ -371,7 +380,7 @@ module Make (Conf : Config) = struct
       | MINUS -> M.op Op.Sub
       | MUL -> M.op Op.Mul
       | NEQ -> M.op Op.Ne |> to_bool
-      | OR -> or_
+      | OR -> logor
       | PLUS -> M.op Op.Add
       | SHL -> M.op Op.ShiftLeft
       | SHR -> M.op Op.ShiftRight

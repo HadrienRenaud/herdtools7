@@ -451,6 +451,11 @@ module Make (B : Backend.S) (C : Config) = struct
         | NotFound -> fatal_from e @@ Error.UndefinedIdentifier x)
         |: SemanticsRule.EVar
     (* End *)
+    | E_Binop (((BAND | BOR | IMPL) as op), e1, e2)
+      when is_simple_expr e1 && is_simple_expr e2 ->
+        let* v1 = eval_expr_sef env e1 and* v2 = eval_expr_sef env e2 in
+        let* v = B.binop op v1 v2 in
+        return_normal (v, env)
     (* Begin EvalBinopAnd *)
     | E_Binop (BAND, e1, e2) ->
         (* if e1 then e2 else false *)
