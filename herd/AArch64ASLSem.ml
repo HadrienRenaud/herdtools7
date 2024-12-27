@@ -1224,7 +1224,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
           let monads,_ =
             let solve_regs (_i, cs, es) =
               let () =
-                if  _dbg then begin
+                if false && _dbg then begin
                   Printf.eprintf "** Events **\n" ;
                   ASLE.EventSet.iter
                     (fun e ->
