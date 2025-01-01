@@ -1202,6 +1202,73 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
           (A.dump_instruction ii.A.inst);
       AArch64Mixed.build_semantics test ii
 
+    let exec_herd_asl model flitmus test =
+      let check_event_structure = check_event_structure model in
+      let { MC.event_structures = rfms; _ }, test =
+        MC.glommed_event_structures test
+      in
+      let () =
+        if _dbg then
+          Printf.eprintf "Got rfms back: %d of them.\n%!" (List.length rfms)
+      in
+      let solve_regs (_i, cs, es) =
+        let () =
+          if false && _dbg then (
+            Printf.eprintf "** Events **\n";
+            ASLE.EventSet.iter
+              (fun e -> Printf.eprintf "  %a\n" ASLE.debug_event e)
+              es.ASLE.events)
+        in
+        MC.solve_regs test es cs
+      in
+      let check_rfm li (es, rfmap, cs) =
+        let po = MU.po_iico es in
+        let pos =
+          let mem_evts = ASLE.mem_of es.ASLE.events in
+          ASLE.EventRel.of_pred mem_evts mem_evts (fun e1 e2 ->
+              ASLE.same_location e1 e2 && ASLE.EventRel.mem (e1, e2) po)
+        in
+        let partial_po =
+          ASLE.EventTransRel.to_implicitely_transitive_rel es.ASLE.partial_po
+        in
+        let conc =
+          ASLS.{ ASLS.conc_zero with str = es; rfmap; po; partial_po; pos }
+        in
+        let kfail li =
+          let () = if _dbg then prerr_endline "ASL cat, fail" in
+          li
+        in
+        let ksuccess _conc _fs (out_sets, out_show) _flags li =
+          let () = if _dbg then prerr_endline "ASL cat, success" in
+          let c = (cs, Lazy.force out_sets, Lazy.force out_show) in
+          Translator.(filter_execution c) :: li
+        in
+        check_event_structure test conc kfail ksuccess li
+      in
+      let check (li, seen) ((_, _, cs) as c) =
+        let msg =
+          if is_cutoff then (* Keep all executions, included pruned ones. *)
+            None
+          else ASLS.find_cutoff cs.ASLS.E.events
+        in
+        match msg with
+        | None -> (
+            match solve_regs c with
+            | None -> (li, seen)
+            | Some c -> (check_rfm li c, seen))
+        | Some msg ->
+            if StringSet.mem msg seen then (li, seen)
+            else
+              let () =
+                Warn.warn_always "%a: %s, some legal outcomes may be missing"
+                  Pos.pp_pos0 flitmus msg
+              in
+              let seen = StringSet.add msg seen in
+              (li, seen)
+      in
+      let execs, _seen = List.fold_left check ([], StringSet.empty) rfms in
+      execs
+
     let asl_build_semantics test ii =
       let flitmus = test.Test_herd.name.Name.file in
       let () =
@@ -1216,84 +1283,8 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
       | Some (fname, args) -> (
           let test = fake_test ii fname args in
           let model = build_model_from_file "asl.cat" in
-          let check_event_structure = check_event_structure model in
-          let { MC.event_structures = rfms; _ }, test =
-            MC.glommed_event_structures test
-          in
-          let () =
-            if _dbg then
-              Printf.eprintf "Got rfms back: %d of them.\n%!" (List.length rfms)
-          in
-          let monads,_ =
-            let solve_regs (_i, cs, es) =
-              let () =
-                if false && _dbg then begin
-                  Printf.eprintf "** Events **\n" ;
-                  ASLE.EventSet.iter
-                    (fun e ->
-                       Printf.eprintf "  %a\n"
-                         ASLE.debug_event e)
-                    es.ASLE.events
-                end in
-              MC.solve_regs test es cs in
-
-            let check_rfm li (es, rfm, cs) =
-              let po = MU.po_iico es in
-              let pos =
-                let mem_evts = ASLE.mem_of es.ASLE.events in
-                ASLE.EventRel.of_pred mem_evts mem_evts (fun e1 e2 ->
-                    ASLE.same_location e1 e2 && ASLE.EventRel.mem (e1, e2) po)
-              in
-              let partial_po =
-                ASLE.EventTransRel.to_implicitely_transitive_rel
-                  es.ASLE.partial_po
-              in
-
-              let conc =
-                {
-                  ASLS.conc_zero with
-                  ASLS.str = es;
-                  ASLS.rfmap = rfm;
-                  ASLS.po;
-                  ASLS.partial_po;
-                  ASLS.pos;
-                }
-              in
-              let kfail li =
-                let () =
-                  if _dbg then prerr_endline "ASL cat, fail" in
-                li in
-              let ksuccess _conc _fs (out_sets, out_show) _flags li =
-                let () = if _dbg then  prerr_endline "ASL cat, success" in
-                let c = cs, Lazy.force out_sets, Lazy.force out_show in
-                Translator.(tr_execution ii (filter_execution c))::li
-              in
-              check_event_structure test conc kfail ksuccess li
-            in
-            let check (li,seen)  (_,_,cs as c) =
-              let msg =
-                if is_cutoff then
-                  (* Keep all executions, included pruned ones. *)
-                  None
-                else ASLS.find_cutoff cs.ASLS.E.events in
-              let seen  =
-                match msg with
-                | Some msg ->
-                    if not (StringSet.mem msg seen) then begin
-                      Warn.warn_always
-                        "%a: %s, some legal outcomes may be missing"
-                        Pos.pp_pos0 flitmus
-                        msg;
-                      StringSet.add msg seen
-                    end else seen
-                | None -> seen in
-              if Misc.is_some msg then li,seen
-              else
-                match solve_regs c with
-                | None -> li,seen
-                | Some c -> check_rfm li c,seen in
-            List.fold_left check ([],StringSet.empty) rfms
-          in
+          let execs = exec_herd_asl model flitmus test in
+          let monads = List.map (Translator.tr_execution ii) execs in
           let () =
             if _dbg then
               Printf.eprintf "Got %d complete executions.\n%!"
