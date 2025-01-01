@@ -78,6 +78,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
     module ASLE = ASLS.E
     module EMap = ASLE.EventMap
     module ESet = ASLE.EventSet
+    module ERel = ASLE.EventRel
     module ASLVC = ASLS.M.VC
     module ASLTH = Test_herd.Make (ASLS.A)
 
@@ -92,7 +93,18 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
     module MC = Mem.Make (MCConf) (ASLS)
     module MU = MemUtils.Make (ASLS)
 
-    type asl_exec = ASLS.concrete * ASLVC.cnstrnts * ASLS.set_pp * ASLS.rel_pp
+    type asl_exec = ASLVC.cnstrnts * ASLS.set_pp * ASLS.rel_pp
+    type filtered_asl_exec =
+      {
+        events: ESet.t;
+        data: ESet.t;
+        bcc: ESet.t;
+        finals: ESet.t;
+        aarch64_iico_data: ERel.t;
+        aarch64_iico_ctrl: ERel.t;
+        aarch64_iico_order: ERel.t;
+        constraints: ASLVC.cnstrnts;
+      }
 
     let tr_cond =
       let open AArch64Base in
@@ -869,8 +881,10 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
       test
 
     module Translator : sig
+      val filter_execution : asl_exec -> filtered_asl_exec
+
       val tr_execution :
-        AArch64.inst_instance_id -> asl_exec -> (proc * branch) M.t
+        AArch64.inst_instance_id -> filtered_asl_exec -> (proc * branch) M.t
     end = struct
       module IMap = Map.Make (Int)
 
@@ -1024,53 +1038,42 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
         let monads = Seq.map one_pair (ASLE.EventRel.to_seq rel) in
         Seq.fold_left ( ||| ) (return ()) monads
 
+      let filter_execution (cs, set_pp, vbpp) =
+        let set x = try StringMap.find x set_pp with Not_found -> ESet.empty in
+        let rel x = try List.assoc x vbpp with Not_found -> ERel.empty in
+        {
+          events = set "AArch64";
+          data = set "AArch64_DATA";
+          bcc = set "AArch64_BCC";
+          finals = set "AArch64Finals";
+          aarch64_iico_data = rel aarch64_iico_data;
+          aarch64_iico_ctrl = rel aarch64_iico_ctrl;
+          aarch64_iico_order = rel aarch64_iico_order;
+          constraints = cs;
+        }
 
-      let tr_execution ii (conc, cs, set_pp, vbpp) =
-        let get_cat_show get x =
-          match StringMap.find_opt x set_pp with
-          | Some e -> get e
-          | None -> get ESet.empty in
+      let tr_execution ii exec =
         let () = if _dbg then Printf.eprintf "Translating event structure:\n" in
-        let () =
-          if _dbg then (
-            Printf.eprintf "\t-all events:\n";
-            ESet.iter
-              (fun e ->
-                Printf.eprintf "\t\t- %s:%s\n" (ASLE.pp_eiid e)
-                  (ASLE.Act.pp_action e.ASLE.action))
-              conc.ASLS.str.ASLE.events)
-        in
-        let events = get_cat_show ESet.to_seq "AArch64" in
-        let is_data =
-          let data_set =
-            get_cat_show Misc.identity "AArch64_DATA" in
-          fun e -> ESet.mem e data_set in
-        let is_bcc =
-          let bcc = get_cat_show Misc.identity "AArch64_BCC" in
-          fun e -> ASLE.EventSet.mem e bcc in
-        let () = if _dbg then Printf.eprintf "\t- events: " in
-        let event_list = List.of_seq events in
+        let is_data e = ESet.mem e exec.data in
+        let is_bcc e = ESet.mem e exec.bcc in
+        let event_list = ESet.to_list exec.events in
+        let () = if _dbg then Printf.eprintf " - AArch64 events: " in
         let event_to_monad_map =
-          Seq.filter_map (event_to_monad ii is_bcc is_data) events
-          |> EMap.of_seq
+          List.filter_map (event_to_monad ii is_bcc is_data) event_list
+          |> EMap.of_list
         in
         let events_m =
           let folder _e1 m1 acc = m1 ||| acc in
           EMap.fold folder event_to_monad_map (return ())
         in
         let () = if _dbg then Printf.eprintf "\n" in
-        let translate_maybe_rel comb name =
-          match List.assoc_opt name vbpp with
-          | Some rel ->
-              let () = if _dbg then Printf.eprintf "\t- %s: " name in
-              let res = rel_to_monad event_to_monad_map comb rel in
-              let () = if _dbg then Printf.eprintf "\n" in
-              res
-          | None -> return ()
+        let iico_data =
+          rel_to_monad event_to_monad_map M.( >>= ) exec.aarch64_iico_data
+        and iico_ctrl =
+          rel_to_monad event_to_monad_map M.( >>*= ) exec.aarch64_iico_ctrl
+        and iico_order =
+          rel_to_monad event_to_monad_map M.bind_order exec.aarch64_iico_order
         in
-        let iico_data = translate_maybe_rel M.( >>= ) aarch64_iico_data in
-        let iico_ctrl = translate_maybe_rel M.( >>*= ) aarch64_iico_ctrl in
-        let iico_order = translate_maybe_rel M.bind_order aarch64_iico_order in
         let branch =
           let one_event bds event =
             match event.ASLE.action with
@@ -1092,7 +1095,6 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
                 bds
             | _ -> bds in
           let bds = List.fold_left one_event [] event_list in
-          let finals = get_cat_show  Misc.identity "AArch64Finals" in
           let pc =
             let n_pc = (* Count writes to PC *)
               List.fold_left
@@ -1122,7 +1124,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
                         ASLBase.ArchReg AArch64Base.PC), v, _, _) ->
                      Some (tr_v v)
                   | _ -> r)
-                finals None in
+                exec.finals None in
           match Misc.seq_opt A.V.as_int pc with
           | Some v -> B.Jump (B.Addr v,bds)
           | None ->
@@ -1147,9 +1149,10 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
         let constraints =
           let () =
             if _dbg then
-              Printf.eprintf "\t- constraints:\n%s\n" (ASLVC.pp_cnstrnts cs)
+              Printf.eprintf "\t- constraints:\n%s\n"
+                (ASLVC.pp_cnstrnts exec.constraints)
           in
-          M.restrict (tr_cnstrnts cs)
+          M.restrict (tr_cnstrnts exec.constraints)
         in
         let () = if _dbg then Printf.eprintf "\n" in
         let* () =
@@ -1260,12 +1263,10 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
                 let () =
                   if _dbg then prerr_endline "ASL cat, fail" in
                 li in
-              let ksuccess conc _fs (out_sets, out_show) _flags li =
-                let () =
-                  if _dbg then  prerr_endline "ASL cat, success" in
-                let c =
-                  conc, cs, Lazy.force out_sets, Lazy.force out_show in
-                Translator.tr_execution ii c::li
+              let ksuccess _conc _fs (out_sets, out_show) _flags li =
+                let () = if _dbg then  prerr_endline "ASL cat, success" in
+                let c = cs, Lazy.force out_sets, Lazy.force out_show in
+                Translator.(tr_execution ii (filter_execution c))::li
               in
               check_event_structure test conc kfail ksuccess li
             in
