@@ -19,7 +19,7 @@ type t =
     p_kv : string StringMap.t;
     p_attrs : StringSet.t; }
 
-(* Buld values *)
+(* Build values *)
 val empty : t
 val add_oa : OutputAddress.t -> t -> t
 val add_oa_if_none : OutputAddress.t -> t -> t

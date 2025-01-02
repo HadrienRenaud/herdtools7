@@ -786,6 +786,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
     let is_experimental = TopConf.C.variant Variant.ASLExperimental
     let is_vmsa = TopConf.C.variant Variant.VMSA
     let is_cutoff = TopConf.C.variant Variant.CutOff
+    let info_field_instruction = "AArch64 Original Instruction"
 
     let fake_test ii fname decode =
       let init = [] in
@@ -823,11 +824,12 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
         in
         [ ((ii.A.proc, None, MiscParser.Main), [ ASLBase.Instruction [ main ] ]) ]
       in
+      let instruction = A.pp_instruction PPMode.Ascii ii.A.inst in
       let t =
         {
           MiscParser.init;
           prog;
-          info = [];
+          info = [ (info_field_instruction, instruction) ];
           filter = None;
           condition = ConstrGen.ExistsState (ConstrGen.And []);
           locations = [];
@@ -1202,7 +1204,8 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
           (A.dump_instruction ii.A.inst);
       AArch64Mixed.build_semantics test ii
 
-    let exec_herd_asl model flitmus test =
+    let exec_herd_asl flitmus test =
+      let model = build_model_from_file "asl.cat" in
       let check_event_structure = check_event_structure model in
       let { MC.event_structures = rfms; _ }, test =
         MC.glommed_event_structures test
@@ -1269,6 +1272,29 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
       let execs, _seen = List.fold_left check ([], StringSet.empty) rfms in
       execs
 
+    let _exec_herd_asl flitmus =
+      let table = Hashtbl.create 17 in
+      fun test ->
+        let hash =
+          Printf.sprintf "Init state:\n%s\n\n AArch64Instruction:%s\n\n"
+            (ASLS.A.dump_state test.Test_herd.init_state)
+            (List.assoc info_field_instruction test.Test_herd.info)
+          |> Digest.string
+        in
+        let cache_hit = Hashtbl.mem table hash in
+        let () =
+          if _dbg then
+            Printf.eprintf "Cache %s for %s.\n%!"
+              (if cache_hit then "hit" else "miss")
+              test.Test_herd.name.Name.name
+        in
+        if cache_hit then
+          Hashtbl.find table hash
+        else
+          let res = exec_herd_asl flitmus test in
+          Hashtbl.add table hash res;
+          res
+
     let asl_build_semantics test ii =
       let flitmus = test.Test_herd.name.Name.file in
       let () =
@@ -1282,8 +1308,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
       | Some _ when AArch64.is_mixed -> check_strict test ii
       | Some (fname, args) -> (
           let test = fake_test ii fname args in
-          let model = build_model_from_file "asl.cat" in
-          let execs = exec_herd_asl model flitmus test in
+          let execs = exec_herd_asl flitmus test in
           let monads = List.map (Translator.tr_execution ii) execs in
           let () =
             if _dbg then
