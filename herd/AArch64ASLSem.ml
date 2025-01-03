@@ -36,6 +36,13 @@ let catch_silent_exit body =
   let catcher = (None,exit_type,return_0) in
   add_dummy_annotation (S_Try (body,[catcher],None))
 
+let end_profile t0 msg : unit =
+  let t1 = Sys.time () in
+  if t1 -. t0 > 1. (* We log only executions that took more than 1 second *)
+  then
+    Printf.eprintf "AArch64+ASL sem took %fs to evaluate %s.\n%!" (t1 -. t0)
+      msg
+
 module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
   AArch64Sig.Semantics with module A.V = V = struct
   module AArch64S = AArch64Sem.Make (TopConf) (V)
@@ -45,6 +52,18 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
   let ( let* ) = M.( >>= )
   let return = M.unitT
   let _dbg = TopConf.C.debug.Debug_herd.monad
+  let _profile = TopConf.C.debug.Debug_herd.profile_asl
+
+  let start_profile = if _profile then Sys.time else Fun.const 0.
+  let end_profile = if _profile then end_profile else fun _ _ -> ()
+
+  let profile msg f =
+    if _profile then
+      let t0 = start_profile () in
+      let res = f () in
+      let () = end_profile t0 msg in
+      res
+    else f ()
 
   module Mixed (SZ : ByteSize.S) : sig
     val build_semantics : test -> A.inst_instance_id -> (proc * branch) M.t
@@ -789,6 +808,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
     let info_field_instruction = "AArch64 Original Instruction"
 
     let fake_test ii fname decode =
+      profile "build fake test" @@ fun () ->
       let init = [] in
       let prog =
         let version =
@@ -1044,6 +1064,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
         Seq.fold_left ( ||| ) (return ()) monads
 
       let filter_execution (cs, set_pp, vbpp) =
+        profile "get execution results" @@ fun () ->
         let set x = try StringMap.find x set_pp with Not_found -> ESet.empty in
         let rel x = try List.assoc x vbpp with Not_found -> ERel.empty in
         {
@@ -1089,6 +1110,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
         |> List.flatten
 
       let tr_execution ii exec =
+        profile "translate ASL execution to AArch64" @@ fun () ->
         let () = if _dbg then Printf.eprintf "Translating event structure:\n" in
         let is_data e = ESet.mem e exec.data in
         let is_bcc e = ESet.mem e exec.bcc in
@@ -1218,6 +1240,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
       ASL64M.check_event_structure
 
     let build_model_from_file fname =
+      profile "build asl model" @@ fun () ->
       let module P = ParseModel.Make (struct
         include LexUtils.Default
 
@@ -1239,9 +1262,10 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
       AArch64Mixed.build_semantics test ii
 
     let exec_herd_asl flitmus test =
+      profile "execute herd on ASL" @@ fun () ->
       let model = build_model_from_file "asl.cat" in
-      let check_event_structure = check_event_structure model in
       let { MC.event_structures = rfms; _ }, test =
+        profile "get glommed event structures" @@ fun () ->
         MC.glommed_event_structures test
       in
       let () =
@@ -1249,6 +1273,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
           Printf.eprintf "Got rfms back: %d of them.\n%!" (List.length rfms)
       in
       let solve_regs (_i, cs, es) =
+        profile "solve registers" @@ fun () ->
         let () =
           if false && _dbg then (
             Printf.eprintf "** Events **\n";
@@ -1259,31 +1284,40 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
         MC.solve_regs test es cs
       in
       let check_rfm li (es, rfmap, cs) =
-        let po = MU.po_iico es in
+        let t0_check_rfm = start_profile () in
+        let po = ASLE.EventRel.empty in
         let pos =
+          profile "build pos" @@ fun () ->
           let mem_evts = ASLE.mem_of es.ASLE.events in
           ASLE.EventRel.of_pred mem_evts mem_evts (fun e1 e2 ->
               ASLE.same_location e1 e2 && ASLE.EventRel.mem (e1, e2) po)
         in
         let partial_po =
+          profile "build partial po" @@ fun () ->
           ASLE.EventTransRel.to_implicitely_transitive_rel es.ASLE.partial_po
         in
         let conc =
           ASLS.{ ASLS.conc_zero with str = es; rfmap; po; partial_po; pos }
         in
+        let t0_cat = start_profile () in
         let kfail li =
+          let () = end_profile t0_cat "ASL cat" in
+          let () = end_profile t0_check_rfm "check_rfm" in
           let () = if _dbg then prerr_endline "ASL cat, fail" in
           li
         in
         let ksuccess _conc _fs (out_sets, out_show) _flags li =
+          let () = end_profile t0_cat "ASL cat" in
+          let () = end_profile t0_check_rfm "check_rfm" in
           let () = if _dbg then prerr_endline "ASL cat, success" in
           let c = (cs, Lazy.force out_sets, Lazy.force out_show) in
           Translator.(filter_execution c) :: li
         in
-        check_event_structure test conc kfail ksuccess li
+        check_event_structure model test conc kfail ksuccess li
       in
       let check (li, seen) ((_, _, cs) as c) =
         let msg =
+          profile "find cutoff" @@ fun () ->
           if is_cutoff then (* Keep all executions, included pruned ones. *)
             None
           else ASLS.find_cutoff cs.ASLS.E.events
