@@ -885,6 +885,9 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
     module Translator : sig
       val filter_execution : asl_exec -> filtered_asl_exec
 
+      val remove_duplicate_execs :
+        filtered_asl_exec list -> filtered_asl_exec list
+
       val tr_execution :
         AArch64.inst_instance_id -> filtered_asl_exec -> (proc * branch) M.t
     end = struct
@@ -1053,6 +1056,37 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
           aarch64_iico_order = rel aarch64_iico_order;
           constraints = cs;
         }
+
+      module IntMap = MyMap.Make(Int)
+
+      let equal_execs e1 e2 =
+        ESet.equal e1.events e2.events
+        && ESet.equal e1.data e2.data
+        && ESet.equal e1.bcc e2.finals
+        && ERel.equal e1.aarch64_iico_data e2.aarch64_iico_data
+        && ERel.equal e1.aarch64_iico_ctrl e2.aarch64_iico_ctrl
+        && ERel.equal e1.aarch64_iico_order e2.aarch64_iico_order
+        && String.equal
+             (ASLVC.pp_cnstrnts e1.constraints)
+             (ASLVC.pp_cnstrnts e2.constraints)
+
+      let rec dumb_remove_duplicate_execs acc = function
+        | [] -> acc
+        | h :: t ->
+            List.filter (Fun.negate (equal_execs h)) t
+            |> dumb_remove_duplicate_execs (h :: acc)
+
+      let remove_duplicate_execs execs =
+        List.fold_left
+          (fun acc exec ->
+            IntMap.update
+              (ESet.cardinal exec.events)
+              (function None -> Some [ exec ] | Some li -> Some (exec :: li))
+              acc)
+          IntMap.empty execs
+        |> IntMap.bindings |> List.map snd
+        |> List.map (dumb_remove_duplicate_execs [])
+        |> List.flatten
 
       let tr_execution ii exec =
         let () = if _dbg then Printf.eprintf "Translating event structure:\n" in
@@ -1270,7 +1304,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
               (li, seen)
       in
       let execs, _seen = List.fold_left check ([], StringSet.empty) rfms in
-      execs
+      Translator.remove_duplicate_execs execs
 
     let _exec_herd_asl flitmus =
       let table = Hashtbl.create 17 in
@@ -1288,8 +1322,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
               (if cache_hit then "hit" else "miss")
               test.Test_herd.name.Name.name
         in
-        if cache_hit then
-          Hashtbl.find table hash
+        if cache_hit then Hashtbl.find table hash
         else
           let res = exec_herd_asl flitmus test in
           Hashtbl.add table hash res;
