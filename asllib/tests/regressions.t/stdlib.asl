@@ -13,6 +13,29 @@ begin
   end;
 end;
 
+func check_pow2 (n: integer)
+begin
+  let p = 2 ^ n;
+
+  if p != 1 then // For p == 1, FloorPow2(p-1) is not defined
+    assert FloorPow2(p-1) == p DIVRM 2;
+  end;
+  if p != 2 then // For p == 2, CeilPow2(p-1) == 1 == p-1 and IsPow2(p-1) == TRUE
+    assert CeilPow2(p-1) == p;
+    assert   IsPow2(p-1) == FALSE;
+  end;
+
+  assert FloorPow2(p) == p;
+  assert  CeilPow2(p) == p;
+  assert    IsPow2(p) == TRUE;
+
+  assert  CeilPow2(p+1) == 2 * p;
+  if p != 1 then // For p == 1, FloorPow2(p+1) == 2 == p+1 and IsPow2(p+1) == TRUE
+    assert FloorPow2(p+1) == p;
+    assert    IsPow2(p+1) == FALSE;
+  end;
+end;
+
 // Extra main
 func main() => integer
 begin
@@ -160,6 +183,24 @@ begin
 
   for i = 10 to 1000 do
     assert Log2(i DIVRM 10) == ILog2 (Real (i) / 10.0);
+  end;
+
+  for n = 0 to 10 do
+    check_pow2(n);
+    check_pow2(19*n+1);
+  end;
+
+    assert FloorPow2(p-1) == p DIVRM 2;
+    assert  CeilPow2(p-1) == p;
+    assert    IsPow2(p-1) == FALSE;
+
+    assert FloorPow2(p) == p;
+    assert  CeilPow2(p) == p;
+    assert    IsPow2(p) == TRUE;
+
+    assert FloorPow2(p+1) == p;
+    assert  CeilPow2(p+1) == 2 * p;
+    assert    IsPow2(p+1) == FALSE;
   end;
 
   return 0;

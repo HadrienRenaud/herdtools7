@@ -46,6 +46,44 @@ begin
     return (a MOD 2) == 1;
 end;
 
+// FloorPow2()
+// ===========
+// For a strictly positive integer x, returns the largest power of 2 that is
+// less than or equal to x
+
+func FloorPow2(x : integer) => integer
+begin
+    assert x > 0;
+    var p2 : integer = 2;
+    while x >= p2 looplimit 2^128 do // i.e. unbounded
+        p2 = p2 * 2;
+    end;
+    return p2 DIV 2;
+end;
+
+// CeilPow2()
+// ==========
+// For an integer x, returns the smallest power of 2 that is greater or equal
+// to x.
+
+func CeilPow2(x : integer) => integer
+begin
+    if x <= 1 then return 1; end;
+    return FloorPow2(x - 1) * 2;
+end;
+
+// IsPow2()
+// ========
+// Return TRUE if integer X is positive and a power of 2. Otherwise,
+// return FALSE.
+
+func IsPow2(x : integer) => boolean
+begin
+    if x <= 0 then return FALSE; end;
+    return FloorPow2(x) == CeilPow2(x);
+end;
+
+
 //------------------------------------------------------------------------------
 // Functions on reals
 
