@@ -1,12 +1,6 @@
   $ aslref binop-read-read.asl
   $ aslref binop-read-write.asl
-  File binop-read-write.asl, line 11, characters 10 to 31:
-  ASL Typing error: conflicting side effects WritesGlobal "X" and ReadsGlobal "X"
-  [1]
   $ aslref binop-write-write.asl
-  File binop-write-write.asl, line 11, characters 10 to 47:
-  ASL Typing error: conflicting side effects WritesGlobal "X" and WritesGlobal "X"
-  [1]
   $ aslref binop-read-write-diff.asl
   $ aslref binop-write-write-diff.asl
 
@@ -17,19 +11,13 @@
   $ aslref binop-throw-read.asl
   E caught
   $ aslref binop-throw-write.asl
-  File binop-throw-write.asl, line 18, characters 12 to 43:
-  ASL Typing error: conflicting side effects ThrowsException "E" and WritesGlobal "X"
-  [1]
+  E caught
   $ aslref binop-throw-throw.asl
-  File binop-throw-throw.asl, line 11, characters 12 to 37:
-  ASL Typing error: conflicting side effects ThrowsException "E" and ThrowsException "E"
-  [1]
+  E caught
   $ aslref binop-throw-caught.asl
   E caught
   $ aslref binop-throw-not-caught.asl
-  File binop-throw-not-caught.asl, line 21, characters 12 to 37:
-  ASL Typing error: conflicting side effects ThrowsException "E" and ThrowsException "E"
-  [1]
+  E caught
   $ aslref binop-throw-otherwised.asl
   E caught
 
@@ -39,9 +27,7 @@
   $ aslref binop-unknown-unknown.asl
 
   $ aslref binop-throw-atc.asl
-  File binop-throw-atc.asl, line 16, characters 12 to 41:
-  ASL Typing error: conflicting side effects ThrowsException "E" and PerformsAssertions
-  [1]
+  E caught
   $ aslref binop-write-atc.asl
   File binop-write-atc.asl, line 5, characters 10 to 11:
   ASL Execution error: Mismatch type:
@@ -87,13 +73,7 @@
 
   $ aslref for-var-no-edit.asl
   $ aslref for-var-edits.asl
-  File for-var-edits.asl, line 6, character 2 to line 8, character 6:
-  ASL Typing error: conflicting side effects ReadsLocal "x" and WritesLocal "x"
-  [1]
   $ aslref for-read-write-global.asl
-  File for-read-write-global.asl, line 14, character 2 to line 16, character 6:
-  ASL Typing error: conflicting side effects ReadsGlobal "X" and WritesGlobal "X"
-  [1]
   $ aslref while-var-edits.asl
   $ aslref repeat-var-edits.asl
 
@@ -255,39 +235,51 @@
     side-effects: [CallsRecursive "throwing", ReadsLocal "n"].
   [1]
   $ aslref rec-binop-atc-throw.asl
-  File rec-binop-atc-throw.asl, line 15, characters 10 to 54:
-  ASL Typing error: conflicting side effects CallsRecursive "throwing" and PerformsAssertions
+  File rec-binop-atc-throw.asl, line 3, character 0 to line 10, character 4:
+  ASL Warning: the mutually-recursive functions throwing, foo have no recursive
+  limit annotation.
+  File rec-binop-atc-throw.asl, line 15, characters 37 to 38:
+  ASL Execution error: Mismatch type:
+    value 2 does not belong to type integer {3}.
   [1]
   $ aslref rec-binop-read-throw.asl
-  File rec-binop-read-throw.asl, line 22, characters 10 to 45:
-  ASL Typing error: conflicting side effects CallsRecursive "throwing" and ReadsGlobal "X"
-  [1]
+  File rec-binop-read-throw.asl, line 4, character 0 to line 11, character 4:
+  ASL Warning: the mutually-recursive functions throwing, foo have no recursive
+  limit annotation.
   $ aslref rec-binop-unknown.asl
   $ aslref rec-binop-read.asl
-  File rec-binop-read.asl, line 17, characters 10 to 42:
-  ASL Typing error: conflicting side effects CallsRecursive "not_throwing" and ReadsGlobal "X"
-  [1]
+  File rec-binop-read.asl, line 3, character 0 to line 6, character 4:
+  ASL Warning: the mutually-recursive functions not_throwing, foo have no
+  recursive limit annotation.
   $ aslref rec-binop-read-local.asl
   $ aslref rec-binop-write.asl
-  File rec-binop-write.asl, line 18, characters 10 to 43:
-  ASL Typing error: conflicting side effects CallsRecursive "not_throwing" and WritesGlobal "X"
-  [1]
+  File rec-binop-write.asl, line 3, character 0 to line 6, character 4:
+  ASL Warning: the mutually-recursive functions not_throwing, foo have no
+  recursive limit annotation.
   $ aslref rec-assert.asl
-  File rec-assert.asl, line 9, characters 10 to 51:
-  ASL Typing error: conflicting side effects CallsRecursive "not_throwing" and PerformsAssertions
+  File rec-assert.asl, line 1, character 0 to line 4, character 4:
+  ASL Warning: the mutually-recursive functions not_throwing, foo have no
+  recursive limit annotation.
+  File rec-assert.asl, line 9, characters 34 to 35:
+  ASL Execution error: Mismatch type:
+    value 2 does not belong to type integer {3}.
   [1]
   $ aslref rec-binop-atc.asl
-  File rec-binop-atc.asl, line 9, characters 10 to 51:
-  ASL Typing error: conflicting side effects CallsRecursive "not_throwing" and PerformsAssertions
+  File rec-binop-atc.asl, line 1, character 0 to line 4, character 4:
+  ASL Warning: the mutually-recursive functions not_throwing, foo have no
+  recursive limit annotation.
+  File rec-binop-atc.asl, line 9, characters 34 to 35:
+  ASL Execution error: Mismatch type:
+    value 2 does not belong to type integer {3}.
   [1]
   $ aslref rec-binop-read-write.asl
-  File rec-binop-read-write.asl, line 17, characters 10 to 42:
-  ASL Typing error: conflicting side effects CallsRecursive "not_throwing" and ReadsGlobal "X"
-  [1]
+  File rec-binop-read-write.asl, line 3, character 0 to line 6, character 4:
+  ASL Warning: the mutually-recursive functions not_throwing, foo have no
+  recursive limit annotation.
   $ aslref rec-binop-write-throw.asl
-  File rec-binop-write-throw.asl, line 23, characters 10 to 46:
-  ASL Typing error: conflicting side effects CallsRecursive "throwing" and WritesGlobal "X"
-  [1]
+  File rec-binop-write-throw.asl, line 4, character 0 to line 11, character 4:
+  ASL Warning: the mutually-recursive functions throwing, foo have no recursive
+  limit annotation.
   $ aslref rec-constant.asl
   $ aslref constant-rec.asl
   File constant-rec.asl, line 12, characters 2 to 23:
@@ -300,9 +292,9 @@
     produces the following side-effects: [CallsRecursive "foo"].
   [1]
   $ aslref rec-binop-rec.asl
-  File rec-binop-rec.asl, line 9, characters 10 to 35:
-  ASL Typing error: conflicting side effects CallsRecursive "bar" and CallsRecursive "bar"
-  [1]
+  File rec-binop-rec.asl, line 6, character 0 to line 11, character 4:
+  ASL Warning: the mutually-recursive functions foo, bar have no recursive
+  limit annotation.
 
   $ aslref print-var.asl
   0
