@@ -274,7 +274,7 @@ let type_decl ==
         | TYPE; x=tidentdecl; EQ; ~=ty;
           { AST.(D_TypeDecl (x, ty, None)) }
         | RECORD; x=tidentdecl; fields=annotated(braced(nlist(field)));
-          { AST.(D_TypeDecl (x, ASTUtils.add_pos_from fields (T_Record fields.desc), None)) }
+          { AST.(D_TypeDecl (x, ASTUtils.add_pos_from fields (T_Structured (SK_Record, fields.desc)), None)) }
         | ENUMERATION; x=tidentdecl; li=annotated(braced(ntclist(ident)));
           { AST.(D_TypeDecl (x, ASTUtils.add_pos_from li (T_Enum li.desc), None)) }
 
@@ -283,7 +283,7 @@ let type_decl ==
       )
 
       | TYPE; x=tidentdecl; IS; li=annotated(pared(ntclist(field_ns))); EOL;
-        { AST.(D_TypeDecl (x, ASTUtils.add_pos_from li (T_Record li.desc), None)) }
+        { AST.(D_TypeDecl (x, ASTUtils.add_pos_from li (T_Structured (SK_Record, li.desc)), None)) }
     )
   )
 

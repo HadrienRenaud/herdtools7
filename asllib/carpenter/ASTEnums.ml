@@ -227,7 +227,7 @@ module Make (C : Config.S) = struct
       let make_t_tuple li = T_Tuple li in
       list2 tys |> map make_t_tuple
     and t_record =
-      let make_t_record li = T_Record li in
+      let make_t_record li = T_Structured (SK_Record, li) in
       names ** tys |> list |> map make_t_record
     and t_bits =
       let make_t_bits e = T_Bits (e, []) in

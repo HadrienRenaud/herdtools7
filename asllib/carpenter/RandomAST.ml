@@ -209,10 +209,10 @@ module Untyped (C : Config.S) = struct
       T_Tuple li |> annot
     and t_record ty n =
       let+ li = fields ty n in
-      T_Record li |> annot
+      T_Structured (SK_Record, li) |> annot
     and t_exception ty n =
       let+ li = fields ty n in
-      T_Exception li |> annot
+      T_Structured (SK_Exception, li) |> annot
     and t_enum n =
       let+ names = list_repeat n names in
       T_Enum names |> annot
@@ -396,7 +396,7 @@ module Typed (C : Config.S) = struct
     | T_Named _ -> assert false
     | T_Array _ -> 1000000000
     | T_Tuple li -> list_sum ~init:2 (minimal_direct_fuel_ty env) li
-    | T_Record fields | T_Exception fields | T_Collection fields ->
+    | T_Structured (_, fields) ->
         list_sum ~init:2 (fun (_, ty) -> minimal_direct_fuel_ty env ty) fields
 
   let literal ty : literal gen =
@@ -603,7 +603,7 @@ module Typed (C : Config.S) = struct
       let type_folder name (ty', _) acc : expr gen list =
         let ty' = Types.make_anonymous env ty' in
         match ty'.desc with
-        | T_Record fields | T_Exception fields ->
+        | T_Structured (_, fields) ->
             let new_ty = T_Named name |> annot in
             if minimal_direct_fuel_ty env ty' <= n then
               List.fold_left (field_folder new_ty) acc fields
@@ -644,7 +644,7 @@ module Typed (C : Config.S) = struct
         (if C.Syntax.e_ctc then e_ctc expr env ty ty_anon n else None);
         (if C.Syntax.e_record && n >= 2 then
            match (ty_anon.desc, ty.desc) with
-           | (T_Record fields | T_Exception fields), T_Named _
+           | T_Structured (_, fields), T_Named _
              when List.length fields <= n ->
                Some (e_record expr env ty fields n)
            | _ -> None
@@ -727,10 +727,10 @@ module Typed (C : Config.S) = struct
       T_Tuple (List.map snd fields) |> annot
     and t_record ty env max n =
       let+ fields = fields env ty max n in
-      T_Record fields |> annot
+      T_Structured (SK_Record, fields) |> annot
     and t_exception ty env max n =
       let+ fields = fields env ty max n in
-      T_Exception fields |> annot
+      T_Structured (SK_Exception, fields) |> annot
     and t_enum n =
       let+ names = list_repeat n names in
       T_Enum names |> annot
@@ -812,7 +812,7 @@ module Typed (C : Config.S) = struct
         let type_folder name (ty', _) acc : lexpr gen list =
           let ty' = Types.make_anonymous env ty' in
           match ty'.desc with
-          | T_Record fields | T_Exception fields ->
+          | T_Structured (_, fields) ->
               let new_ty = T_Named name |> annot in
               if minimal_direct_fuel_ty env ty' <= n then
                 List.fold_left (field_folder new_ty) acc fields

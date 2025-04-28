@@ -105,6 +105,11 @@ let subprogram_type_to_string = function
   | ST_EmptyGetter -> "ST_EmptyGetter"
   | ST_EmptySetter -> "ST_EmptySetter"
 
+let structure_kind_to_string = function
+  | SK_Record -> "SK_Record"
+  | SK_Exception -> "SK_Exception"
+  | SK_Collection -> "SK_Collection"
+
 let pp_subprogram_type f st = addb f (subprogram_type_to_string st)
 
 let rec pp_expr =
@@ -196,15 +201,10 @@ and pp_ty =
         pp_list pp_ty f li
     | T_Array (length, elt_type) ->
         bprintf f "T_Array (%a, %a)" pp_array_length length pp_ty elt_type
-    | T_Collection li ->
-        addb f "T_Collection ";
-        pp_id_assoc pp_ty f li
-    | T_Record li ->
-        addb f "T_Record ";
-        pp_id_assoc pp_ty f li
-    | T_Exception li ->
-        addb f "T_Exception ";
-        pp_id_assoc pp_ty f li
+    | T_Structured (sk, fields) ->
+        bprintf f "T_Structured (%s, %a)"
+          (structure_kind_to_string sk)
+          (pp_id_assoc pp_ty) fields
     | T_Named identifier -> bprintf f "T_Named %S" identifier
   in
   fun f s -> pp_annotated pp_desc f s

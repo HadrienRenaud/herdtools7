@@ -117,6 +117,11 @@ let binop_to_string : binop -> string = function
 
 let unop_to_string = function BNOT -> "!" | NEG -> "-" | NOT -> "NOT"
 
+let structure_kind_to_string = function
+  | SK_Record -> "record"
+  | SK_Exception -> "exception"
+  | SK_Collection -> "collection"
+
 let pp_literal f = function
   | L_Int i -> Z.pp_print f i
   | L_Bool true -> pp_print_string f "TRUE"
@@ -210,13 +215,11 @@ and pp_ty f t =
   | T_Tuple ty_list -> fprintf f "@[(%a)@]" (pp_comma_list pp_ty) ty_list
   | T_Array (length, elt_type) ->
       fprintf f "@[array [[%a]] of %a@]" pp_array_index length pp_ty elt_type
-  | T_Collection record_ty -> pp_record_like f "collection" record_ty
-  | T_Record record_ty -> pp_record_like f "record" record_ty
-  | T_Exception record_ty -> pp_record_like f "exception" record_ty
+  | T_Structured (sk, fields) ->
+      fprintf f "@[<hv 2>%s {@ %a@;<1 -2>}@]"
+        (structure_kind_to_string sk)
+        pp_fields fields
   | T_Named x -> pp_print_string f x
-
-and pp_record_like f label record_ty =
-  fprintf f "@[<hv 2>%s {@ %a@;<1 -2>}@]" label pp_fields record_ty
 
 and pp_array_index f = function
   | ArrayLength_Expr e -> pp_expr f e

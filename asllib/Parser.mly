@@ -390,12 +390,15 @@ let ty :=
     | ARRAY; LLBRACKET; e=expr; RRBRACKET; OF; t=ty;    { T_Array (ArrayLength_Expr e, t) }
   )
 
+let structured_kind :=
+  | RECORD; { SK_Record }
+  | EXCEPTION; { SK_Exception }
+  | COLLECTION; { SK_Collection }
+
 let ty_decl := ty |
   annotated (
     | ENUMERATION; l=braced(tclist1(IDENTIFIER));       < T_Enum       >
-    | RECORD; l=fields_opt;                             < T_Record     >
-    | EXCEPTION; l=fields_opt;                          < T_Exception  >
-    | COLLECTION; l=fields_opt;                         < T_Collection >
+    | ~=structured_kind; l=fields_opt;                  < T_Structured >
   )
 
 (* Constructs on ty *)

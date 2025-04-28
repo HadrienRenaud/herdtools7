@@ -45,10 +45,10 @@ let builtin_examples () =
     [
       T_Tuple [];
       T_Tuple [ !!T_Real; !!T_String ];
-      T_Record [];
-      T_Record [ ("a", !!T_Real); ("B", integer) ];
-      T_Exception [];
-      T_Exception [ ("a", !!T_Real); ("B", integer) ];
+      T_Structured (SK_Record, []);
+      T_Structured (SK_Record, [ ("a", !!T_Real); ("B", integer) ]);
+      T_Structured (SK_Exception, []);
+      T_Structured (SK_Exception, [ ("a", !!T_Real); ("B", integer) ]);
     ];
 
   (* Not builtin *)

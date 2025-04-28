@@ -73,15 +73,9 @@ let rec get_structure (env : env) (ty : ty) : ty =
   | T_Int _ | T_Real | T_String | T_Bool | T_Bits _ | T_Enum _ -> ty
   | T_Tuple tys -> T_Tuple (List.map (get_structure env) tys) |> with_pos
   | T_Array (e, t) -> T_Array (e, (get_structure env) t) |> with_pos
-  | T_Collection fields ->
+  | T_Structured (sk, fields) ->
       let fields' = assoc_map (get_structure env) fields |> canonical_fields in
-      T_Collection fields' |> with_pos
-  | T_Record fields ->
-      let fields' = assoc_map (get_structure env) fields |> canonical_fields in
-      T_Record fields' |> with_pos
-  | T_Exception fields ->
-      let fields' = assoc_map (get_structure env) fields |> canonical_fields in
-      T_Exception fields' |> with_pos)
+      T_Structured (sk, fields') |> with_pos)
   |: TypingRule.Structure
 (* End *)
 
@@ -91,17 +85,14 @@ let rec get_structure (env : env) (ty : ty) : ty =
 let is_builtin_singular ty =
   (match ty.desc with
   | T_Real | T_String | T_Bool | T_Bits _ | T_Enum _ | T_Int _ -> true
-  | T_Tuple _
-  | T_Array (_, _)
-  | T_Collection _ | T_Record _ | T_Exception _ | T_Named _ ->
-      false)
+  | T_Tuple _ | T_Array (_, _) | T_Structured _ | T_Named _ -> false)
   |: TypingRule.BuiltinSingularType
 (* End *)
 
 (* Begin BuiltinAggregate *)
 let is_builtin_aggregate ty =
   (match ty.desc with
-  | T_Tuple _ | T_Array _ | T_Collection _ | T_Record _ | T_Exception _ -> true
+  | T_Tuple _ | T_Array _ | T_Structured _ -> true
   | T_Int _ | T_Bits (_, _) | T_Real | T_String | T_Bool | T_Enum _ | T_Named _
     ->
       false)
@@ -143,7 +134,7 @@ let rec is_non_primitive ty =
   | T_Named _ -> true
   | T_Tuple tys -> List.exists is_non_primitive tys
   | T_Array (_, ty) -> is_non_primitive ty
-  | T_Record fields | T_Exception fields | T_Collection fields ->
+  | T_Structured (_, fields) ->
       List.exists (fun (_, ty) -> is_non_primitive ty) fields)
   |: TypingRule.NonPrimitiveType
 (* End *)
@@ -327,8 +318,7 @@ module Domain = struct
     | T_Int PendingConstrained -> assert false
     | T_Bool | T_String | T_Real ->
         failwith "Unimplemented: domain of primitive type"
-    | T_Bits _ | T_Enum _ | T_Array _ | T_Collection _ | T_Exception _
-    | T_Record _ | T_Tuple _ ->
+    | T_Bits _ | T_Enum _ | T_Array _ | T_Structured _ | T_Tuple _ ->
         failwith "Unimplemented: domain of a non singular type."
     | T_Named _ -> assert false (* make anonymous *)
 
@@ -612,16 +602,15 @@ and subtype_satisfies env t s =
      If S has the structure of a record type then T must have the
      structure of a record type with at least the same fields
      (each with the same type) as S. *)
-  | T_Collection fields_s, T_Collection fields_t
-  | T_Exception fields_s, T_Exception fields_t
-  | T_Record fields_s, T_Record fields_t ->
-      List.for_all
-        (fun (name_s, ty_s) ->
-          List.exists
-            (fun (name_t, ty_t) ->
-              String.equal name_s name_t && type_equal env ty_s ty_t)
-            fields_t)
-        fields_s
+  | T_Structured (sk_s, fields_s), T_Structured (sk_t, fields_t) ->
+      structured_kind_equal sk_s sk_t
+      && List.for_all
+           (fun (name_s, ty_s) ->
+             List.exists
+               (fun (name_t, ty_t) ->
+                 String.equal name_s name_t && type_equal env ty_s ty_t)
+               fields_t)
+           fields_s
   | T_Named _, _ -> assert false
   | _, _ -> false)
   |: TypingRule.SubtypeSatisfaction

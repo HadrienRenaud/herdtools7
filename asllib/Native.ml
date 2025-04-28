@@ -144,7 +144,12 @@ module NativeBackend (C : Config) = struct
       [ integer_range' zero_expr (expr_of_int (n - 1)) ]
 
   let doesnt_have_fields_exception v =
-    mismatch_type v [ T_Record []; T_Exception []; T_Collection [] ]
+    mismatch_type v
+      [
+        T_Structured (SK_Record, []);
+        T_Structured (SK_Exception, []);
+        T_Structured (SK_Collection, []);
+      ]
 
   let get_index i vec =
     match vec with
@@ -417,14 +422,15 @@ let rec unknown_of_aggregate_type unknown_of_singular_type ~eval_expr_sef ty =
               labels
           in
           NV_Record (IMap.of_list fields))
-  | T_Record fields | T_Exception fields ->
+  | T_Structured ((SK_Record | SK_Exception), fields) ->
       fields
       |> List.map (fun (field_name, t) -> (field_name, unknown_of_type t))
       |> IMap.of_list
       |> fun record -> NV_Record record
   | T_Enum li -> NV_Literal (L_Label (List.hd li))
   | T_Tuple types -> NV_Vector (List.map (fun t -> unknown_of_type t) types)
-  | T_Collection _ | T_Named _ -> Error.(fatal_from ty TypeInferenceNeeded)
+  | T_Structured (SK_Collection, _) | T_Named _ ->
+      Error.(fatal_from ty TypeInferenceNeeded)
 
 module DeterministicBackend = struct
   include NativeBackend (struct
@@ -459,8 +465,7 @@ module DeterministicBackend = struct
         | NV_Literal (L_Int n) ->
             NV_Literal (L_BitVector (Bitvector.zeros (Z.to_int n)))
         | _ -> (* Bad types *) assert false)
-    | T_Enum _ | T_Tuple _ | T_Array _ | T_Record _ | T_Exception _
-    | T_Collection _ | T_Named _
+    | T_Enum _ | T_Tuple _ | T_Array _ | T_Structured _ | T_Named _
     | T_Int PendingConstrained ->
         assert false
 

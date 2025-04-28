@@ -277,6 +277,20 @@ let canonical_fields li =
   let compare (x, _) (y, _) = String.compare x y in
   List.sort compare li
 
+let structured_kind_equal sk1 sk2 =
+  match (sk1, sk2) with
+  | SK_Record, SK_Record
+  | SK_Exception, SK_Exception
+  | SK_Collection, SK_Collection ->
+      true
+  | SK_Exception, SK_Record
+  | SK_Collection, SK_Record
+  | SK_Record, SK_Exception
+  | SK_Record, SK_Collection
+  | SK_Exception, SK_Collection
+  | SK_Collection, SK_Exception ->
+      false
+
 let literal_equal v1 v2 =
   v1 == v2
   ||
@@ -406,12 +420,11 @@ and type_equal eq t1 t2 =
   | T_Named s1, T_Named s2 -> String.equal s1 s2
   | T_Enum li1, T_Enum li2 ->
       (* TODO: order of fields? *) list_equal String.equal li1 li2
-  | T_Exception f1, T_Exception f2
-  | T_Record f1, T_Record f2
-  | T_Collection f1, T_Collection f2 ->
-      list_equal
-        (pair_equal String.equal (type_equal eq))
-        (canonical_fields f1) (canonical_fields f2)
+  | T_Structured (sk1, fs1), T_Structured (sk2, fs2) ->
+      structured_kind_equal sk1 sk2
+      && list_equal
+           (pair_equal String.equal (type_equal eq))
+           (canonical_fields fs1) (canonical_fields fs2)
   | T_Tuple ts1, T_Tuple ts2 -> list_equal (type_equal eq) ts1 ts2
   | _ -> false
 
@@ -726,10 +739,8 @@ let rename_locals map_name ast =
     | T_Bits (e, bitfields) -> T_Bits (map_e e, bitfields)
     | T_Tuple li -> T_Tuple (List.map map_t li)
     | T_Array (_, _) -> failwith "Not yet implemented: obfuscate array types"
-    | T_Collection _ ->
-        failwith "Not yet implemented: obfuscate collection types"
-    | T_Record li -> T_Record (List.map (fun (f, t) -> (f, map_t t)) li)
-    | T_Exception li -> T_Exception (List.map (fun (f, t) -> (f, map_t t)) li)
+    | T_Structured (sk, fs) ->
+        T_Structured (sk, List.map (fun (f, t) -> (f, map_t t)) fs)
   (* End *)
   and map_cs cs = List.map map_c cs
   (* Begin RenameLocalsConstraint *)

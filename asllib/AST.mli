@@ -251,12 +251,11 @@ and type_desc =
   | T_Enum of identifier list
   | T_Tuple of ty list
   | T_Array of array_index * ty
-  | T_Record of field list
-  | T_Exception of field list
-  | T_Collection of field list
+  | T_Structured of structured_kind * field list
   | T_Named of identifier  (** A type variable. *)
 
 and ty = type_desc annotated
+and structured_kind = SK_Record | SK_Exception | SK_Collection
 
 (** A constraint on an integer part. *)
 and int_constraint =
