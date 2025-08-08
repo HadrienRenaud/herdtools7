@@ -228,6 +228,7 @@ let of_binop (x : binop) =
     | `AND -> "AND"
     | `BAND -> "BAND"
     | `BEQ -> "BEQ"
+    | `BIC -> "BIQ"
     | `BOR -> "BOR"
     | `DIV -> "DIV"
     | `DIVRM -> "DIVRM"
