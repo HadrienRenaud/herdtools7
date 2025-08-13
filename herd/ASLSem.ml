@@ -125,7 +125,7 @@ module Make (Conf : Config) = struct
   module ASLInterpreterConfig = struct
     let unroll =
       match Conf.C.unroll with None -> Opts.unroll_default `ASL | Some u -> u
-
+    let recursive_unroll = 2
     let error_handling_time = Asllib.Error.Dynamic
     let log_nondet_choice = false
 
@@ -1138,7 +1138,7 @@ module Make (Conf : Config) = struct
         | Ok m -> m
         | Error err -> Asllib.Error.error_to_string err |> Warn.fatal "%s"
       in
-      assert (V.equal i V.zero);
+      assert (V.equal i V.zero || V.equal i (V.intToV ~-1));
       M.addT !(snd ii_env) B.nextT
 
     let spurious_setaf _ = assert false

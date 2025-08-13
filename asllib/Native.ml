@@ -521,7 +521,8 @@ let instrumentation_buffer = function
 let interpret ?instrumentation static_env ast =
   let module B = (val instrumentation_buffer instrumentation) in
   let module CI : Interpreter.Config = struct
-    let unroll = 0
+    let unroll = -1
+    let recursive_unroll = -1
     let error_handling_time = Error.Dynamic
     let log_nondet_choice = false
 
