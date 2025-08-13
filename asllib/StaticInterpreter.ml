@@ -63,7 +63,7 @@ let static_eval (senv : SEnv.env) (e : expr) : literal =
   match eval_from ~loc:e env e with
   | SI.Normal (Native.NV_Literal l, _env) ->
       l |: Instrumentation.TypingRule.StaticEval
-  | SI.Normal _ | SI.Throwing _ ->
+  | SI.Normal _ | SI.Throwing _ | SI.Cutoff ->
       Error.fatal_from e (UnsupportedExpr (Static, e))
 (* End *)
 

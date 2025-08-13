@@ -1200,7 +1200,7 @@ module Make (Conf : Config) = struct
         | Ok m -> m
         | Error err -> Asllib.Error.error_to_string err |> Warn.fatal "%s"
       in
-      assert (V.equal i V.zero);
+      assert (V.equal i V.zero || V.equal i (V.intToV ~-1));
       M.addT !(snd ii_env) B.nextT
 
     let spurious_setaf _ = assert false
