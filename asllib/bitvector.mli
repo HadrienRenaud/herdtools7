@@ -180,6 +180,9 @@ val is_zeros : t -> bool
 val is_ones : t -> bool
 (** [is_ones bv] is true if every bit of bv is set. *)
 
+val is_one_at : t -> int -> bool
+(** [is_one_at k bv] is true if the kth bit of bv is set. *)
+
 (* --------------------------------------------------------------------------*)
 (**
    {2 Bitvector masks}
@@ -226,3 +229,7 @@ val mask_unset : mask -> t
 
 val mask_specified : mask -> t
 (** [mask_specified m]'s set bits are those require set or unset by [m]. *)
+
+val mask_to_fully_specified_bitvector_opt : mask -> t option
+(** [mask_to_fully_specified_bitvector_opt m] is a bitvector [bv] if [m] only
+    matches [bv], [None] otherwise. *)

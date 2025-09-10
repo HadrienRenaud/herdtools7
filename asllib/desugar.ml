@@ -173,6 +173,61 @@ let desugar_setter_setfields call fields rhs =
     Case statements
    ------------------------------------------------------------------------- *)
 
+let bit1 = E_Literal (L_BitVector Bitvector.one)
+
+let make_good_pattern_matching ~pos e0 size array : stmt =
+  let here x = ASTUtils.add_pos_from pos x in
+  let bit1 = here bit1 in
+  let rec loop size bot top =
+    assert (Int.shift_left 1 size = top - bot);
+    if top - bot = 1 then Array.get array bot else build size bot top
+  and build size bot top : stmt =
+    let size' = size - 1 in
+    let e1 = E_Slice (e0, [ Slice_Single (expr_of_int size') ]) |> here in
+    let mid = (top + bot) / 2 in
+    let s1 = loop size' mid top and s0 = loop size' bot mid in
+    S_Cond (binop `EQ e1 bit1, s1, s0) |> here
+  in
+  loop size 0 (Array.length array)
+
+let make_decision_tree_from_bitvector_matching =
+  let exception DoesntWork in
+  fun ~pos e0 cases ->
+    try
+      let process_one_case case =
+        let () = if Option.is_some case.desc.where then raise DoesntWork in
+        match case.desc.pattern.desc with
+        | Pattern_Single e | Pattern_Any [ { desc = Pattern_Single e } ] -> (
+            match e.desc with
+            | E_Literal (L_BitVector bv) -> (bv, case.desc.stmt)
+            | _ -> raise DoesntWork)
+        | Pattern_Mask m -> (
+            match Bitvector.mask_to_fully_specified_bitvector_opt m with
+            | Some bv -> (bv, case.desc.stmt)
+            | None -> raise DoesntWork)
+        | _ -> raise DoesntWork
+      in
+      let bv_and_stmts = List.map process_one_case cases in
+      let bv_size =
+        match bv_and_stmts with
+        | [] -> raise DoesntWork
+        | (bv, _) :: _ -> Bitvector.length bv
+      in
+      let array_size = Int.shift_left 1 bv_size in
+      let array = Array.make array_size None in
+      List.iter
+        (fun (bv, stmt) ->
+          let i = Bitvector.to_int bv in
+          if i < 0 || i >= array_size then raise DoesntWork
+          else if Option.is_some (Array.get array i) then raise DoesntWork
+          else Array.set array i (Some stmt))
+        bv_and_stmts;
+      let array =
+        Array.map (function None -> raise DoesntWork | Some s -> s) array
+      in
+      Some (make_good_pattern_matching ~pos e0 bv_size array)
+    with DoesntWork -> None
+
 let desugar_case_stmt e0 cases otherwise =
   (* Begin CaseToCond *)
   let case_to_cond e0 case tail =
@@ -188,7 +243,9 @@ let desugar_case_stmt e0 cases otherwise =
   in
   (* Begin CasesToCond *)
   let cases_to_cond e0 cases =
-    List.fold_right (case_to_cond e0) cases otherwise
+    match make_decision_tree_from_bitvector_matching ~pos:e0 e0 cases with
+    | Some s -> s
+    | None -> List.fold_right (case_to_cond e0) cases otherwise
     (* End *)
   in
   (* Begin DesugarCaseStmt *)
@@ -196,8 +253,9 @@ let desugar_case_stmt e0 cases otherwise =
   | E_Var _ -> (cases_to_cond e0 cases).desc
   | _ ->
       let x = fresh_var "__case__linearisation" in
-      let decl_x = S_Decl (LDK_Let, LDI_Var x, None, Some e0) in
-      S_Seq (decl_x |> add_pos_from e0, cases_to_cond (var_ x) cases)
+      let decl_x = S_Decl (LDK_Let, LDI_Var x, None, Some e0)
+      and e0' = E_Var x |> add_pos_from e0 in
+      S_Seq (decl_x |> add_pos_from e0, cases_to_cond e0' cases)
 (* End *)
 
 (* -------------------------------------------------------------------------

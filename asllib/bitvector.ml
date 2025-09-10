@@ -603,6 +603,12 @@ let is_zeros bv =
 let is_one = equal one
 let is_ones bv = length bv |> ones |> equal bv
 
+let is_one_at (length, data) k =
+  if 0 > k || k >= length then raise (Invalid_argument "Bitvector.is_one_at")
+  else
+    let i = k / 8 and j = k mod 8 in
+    String.get data i |> read_bit_raw j |> Int.equal 1
+
 type mask = {
   length : int;
   set : string;
@@ -691,3 +697,7 @@ let mask_to_canonical_string mask =
 let mask_set mask = (mask.length, mask.set)
 let mask_unset mask = (mask.length, mask.unset)
 let mask_specified mask = (mask.length, mask.specified)
+
+let mask_to_fully_specified_bitvector_opt mask =
+  if is_ones (mask.length, mask.specified) then Some (mask.length, mask.set)
+  else None
