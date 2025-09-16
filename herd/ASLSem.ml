@@ -459,8 +459,47 @@ module Make (Conf : Config) = struct
 
     let read_from_bitvector ~loc:_ positions bvs =
       let positions = Asllib.ASTUtils.slices_to_positions v_as_int positions in
-      let arch_op1 = ASLOp.BVSlice positions in
-      M.op1 (Op.ArchOp1 arch_op1) bvs
+      match bvs with
+      | (V.Val _| V.Var (_, ASLValue.ASLSymData.NoData)) ->
+        let arch_op1 = ASLOp.BVSlice positions in
+        M.op1 (Op.ArchOp1 arch_op1) bvs
+      | V.Var (_, ASLValue.ASLSymData.PteVal) ->
+        if true then
+        (match positions with
+            [(54|53|50);] | [(127|114|113);] (* 128 bit mode *)
+              -> (* XPN/UXPN/GP, all disabled *)
+                return (V.Val (Constant.Concrete (ASLScalar.zeros 3)))
+            (* | [51;] -> (* dbm *)
+                let dbm = pte.AArch64PteVal.dbm in
+                return (V.Val (Constant.Concrete (ASLScalar.bv_of_bit dbm))) *)
+            | [11;] -> (* Res0 ? *)
+                 return (V.Val (Constant.Concrete ASLScalar.zeros_size_one))
+            (* | [10;] -> (* AF *)
+                let af = pte.AArch64PteVal.af in
+                return (V.Val (Constant.Concrete (ASLScalar.bv_of_bit af))) *)
+            | [9;8;] ->
+              (* Sharability domain -> inner sharable *)
+              return (V.Val (Constant.Concrete (ASLScalar.bv_of_string "10")))
+            (* | [7;6;] -> (* AP *)
+                let db =  1-pte.AArch64PteVal.db in
+                let el0 = pte.AArch64PteVal.el0 in
+                return (V.Val (Constant.Concrete (ASLScalar.bv_of_bits [db;el0;]))) *)
+            | [5;] ->
+              (* NS *)
+                return (V.Val (Constant.Concrete (ASLScalar.zeros 1)))
+            | [4;3;2;] ->
+              (* memattr *)
+                return (V.Val (Constant.Concrete (ASLScalar.zeros 3)))
+            (* | [0;]  ->
+              (* Valid *)
+                let valid = pte.AArch64PteVal.valid in
+                return (V.Val (Constant.Concrete (ASLScalar.bv_of_bit valid))) *)
+            | _ ->
+        let arch_op1 = ASLOp.BVSlice positions in
+        M.op1 (Op.ArchOp1 arch_op1) bvs)
+        else
+        let arch_op1 = ASLOp.BVSlice positions in
+        M.op1 (Op.ArchOp1 arch_op1) bvs
 
     let write_to_bitvector positions w v =
       let positions = Asllib.ASTUtils.slices_to_positions v_as_int positions in
@@ -609,6 +648,9 @@ module Make (Conf : Config) = struct
       let* addr = addr_m in
       do_read_memory ii (M.unitT addr)  (M.unitT (V.intToV 64))
         aneutral (AArch64Explicit.(NExp Other)) apte
+      >>= function
+      | V.Val _ as v -> return v
+      | V.Var (c, _) -> return (V.Var (c, ASLValue.ASLSymData.PteVal))
 
     let read_memory_gen ii datasize_m addr_m accdesc_m access_m =
       let* accdesc = accdesc_m and* access = access_m in
