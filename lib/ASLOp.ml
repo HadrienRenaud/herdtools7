@@ -64,7 +64,7 @@ type scalar = ASLScalar.t
 
 type pteval = AArch64PteVal.t
 type addrreg = AArch64AddrReg.t
-type instr = ASLBase.Instr.t
+type instr = AArch64Base.instruction
 type cst = (scalar, pteval, addrreg, instr) Constant.t
 
 let pp_op = function
@@ -172,12 +172,16 @@ let do_op op c1 c2 =
         | ASLScalar.S_BitVector s -> Asllib.Bitvector.length s = 0
         | _ -> false
       in
-      (match (as_concrete c1, as_concrete c2) with
-      | (Some s, _) when is_empty s ->
+      (match (as_concrete c1, as_concrete c2,c2) with
+      | (Some s, _,_) when is_empty s ->
           Some c2
-      | (_, Some s) when is_empty s ->
+      | (_, Some s,_) when is_empty s ->
           Some c1
-      | (Some s1, Some s2) ->
+      | (Some (ASLScalar.S_BitVector c1),None,Constant.Instruction _)
+         when Asllib.Bitvector.is_zeros c1 ->
+         (* Unsigned extend of instruction *)
+          Some c2
+      | (Some s1, Some s2,_) ->
         let* s = ASLScalar.try_concat s1 s2 in
         return_concrete s
       | _ -> None)
@@ -216,30 +220,31 @@ let do_op1 op cst =
       match cst with
       | Constant.Concrete s ->
           ASLScalar.convert_to_int_signed s |> return_concrete
-      | Constant.(Symbolic _|PteVal _) -> Some cst
+      | Constant.(Symbolic _|PteVal _|Label _) -> Some cst
       | _ -> None)
   | ToAArch64 -> (
       match cst with
       | Constant.Concrete s ->
           ASLScalar.convert_to_int_signed s |> return_concrete
-      | Constant.Symbolic _|Constant.PteVal _ -> Some cst
+      | Constant.(Symbolic _|PteVal _|Label _|Instruction _) -> Some cst
       | _ -> None)
   | FromAArch64 -> (
       match cst with
       | Constant.Concrete s ->
           ASLScalar.as_bv s |> return_concrete
-      | Constant.(Symbolic _|PteVal _) -> Some cst
+      | Constant.(Symbolic _|PteVal _|Label _|Instruction _) -> Some cst
       | _ -> None)
   | ToIntU -> (
       match cst with
       | Constant.Concrete s ->
           ASLScalar.convert_to_int_unsigned s |> return_concrete
-      | Constant.(Symbolic _|PteVal _) -> Some cst
+      | Constant.(Symbolic _|PteVal _|Label _) -> Some cst
       | _ -> None)
   | ToBV sz -> (
       match cst with
       | Constant.Concrete s -> ASLScalar.convert_to_bv sz s |> return_concrete
-      | Constant.(Symbolic _|PteVal _) -> Some cst
+      | Constant.(Symbolic _|PteVal _|Label _) when sz=64 -> Some cst
+      | Constant.Instruction _ when sz=32-> Some cst
       | _ -> None)
   | BVSlice positions -> (
       match cst with
@@ -281,9 +286,9 @@ let do_op1 op cst =
             | _ when  is_address_mask positions -> Some cst
             | _ -> None
           end
-      | Constant.Symbolic x ->
+      | Constant.(Symbolic _|Label _ as cst) ->
           if is_address_mask positions then
-            Some (Constant.Symbolic x)
+            Some cst
           else begin
           (* MSB of virtual address is assumed null.
            * This hypothesis is reasonable for user programs,
