@@ -219,8 +219,7 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
            (* ASL implementation is "return;" that our interpreter rejects,
               expecting integer return... *)
            ASLBase.stmts_from_string "return 0;" in
-         Some
-           ("control/hints/NOP_HI_hints.opn",stmt [added;])
+         Some ("control/hints/NOP_HI_hints.opn", added)
       | I_B lab ->
          let off = tgt2offset ii lab in
          Some ("control/branch_imm/B_only_branch_imm.opn",
@@ -257,6 +256,40 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
                 "condition" ^= cond c;
                 "_PC" ^^= litbv 64 ii.A.addr;
               ])
+      | I_BL lab ->
+          let offset = tgt2offset ii lab in
+          Some
+            ( "control/branch_imm/BL_only_branch_imm.opn",
+              stmt
+                [
+                  "offset" ^= litbv 64 offset;
+                  "d" ^= liti 30;
+                  "_PC" ^^= litbv 64 ii.A.addr;
+                ])
+      | I_BLR rn | I_BR rn ->
+          let fname =
+            match ii.A.inst with
+            | I_BLR _ -> "BR_64_branch_reg.opn"
+            | I_BR _ -> "BLR_64_branch_reg.opn"
+            | _ -> assert false
+          in
+          Some
+            ( "control/branch_reg/" ^ fname,
+              stmt
+                [
+                  "n" ^= reg rn;
+                  "_PC" ^^= litbv 64 ii.A.addr;
+                ])
+      | I_ADR (rd, lab) ->
+          let offset = tgt2offset ii lab in
+          Some
+            ( "dpimm/pcreladdr/ADR_only_pcreladdr.opn",
+              stmt
+                [
+                  "d" ^= reg rd;
+                  "imm" ^= litbv 64 offset;
+                  "_PC" ^^= litbv 64 ii.A.addr;
+                ])
 
       | I_SWP (v, t, rs, rt, rn) ->
           Some

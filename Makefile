@@ -103,6 +103,7 @@ test.aarch64.asl: asl-pseudocode
 	@ echo
 	$(HERD_REGRESSION_TEST) \
 		-j $(J) \
+		-checkstates \
 		-herd-path $(HERD) \
 		-libdir-path ./herd/libdir \
 		-litmus-dir ./herd/tests/instructions/AArch64 \
