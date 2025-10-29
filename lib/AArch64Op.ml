@@ -241,14 +241,7 @@ module
       AArch64PteVal.andop p @@ S.to_int64 m
       |> Misc.app_opt S.of_int64
 
-    let mask c sz =
-      let open MachSize in
-      let open Constant in
-      match c,sz with
-(* The following are 64bits quantities, the last two being virtual addresses *)
-      | ((PteVal _|Symbolic _|Label _),Quad)
-(* Non-signed 32bit quantity *)
-      | (Instruction _,(Word|Quad))
-        -> Some c
-      | _,_ -> None
+    (* Share code, placement in ASLOp not ideal *)
+    let mask = ASLOp.mask
+
   end
