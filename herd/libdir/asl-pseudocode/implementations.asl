@@ -154,6 +154,7 @@ type Feature of enumeration {
     FEAT_MPAMv2_ALT_ID,
     FEAT_MPAMv2_VID,
     FEAT_MPAMv2,
+    FEAT_MPAMv2_MSC,
     FEAT_MTE_ASYM_FAULT,
     FEAT_MTE_ASYNC,
     FEAT_MTE_CANONICAL_TAGS,
@@ -402,6 +403,21 @@ type SCRType of bits(32) {
 };
 
 var SCR : SCRType = Zeros{64};
+
+type MPAMIDR_EL1_Type of bits(64) {
+  [21] HAS_ALT_ID,
+  [57] HAS_ALTSP,
+  [60] HAS_FORCE_NS,
+  [61] HAS_SDEFLT,
+};
+
+var MPAMIDR_EL1 : MPAMIDR_EL1_Type;
+
+type MPAM1_EL1_Type of bits(64) {
+  [63] MPAMEN,
+};
+
+var MPAM1_EL1 : MPAM1_EL1_Type;
 
 // =============================================================================
 

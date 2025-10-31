@@ -18,28 +18,6 @@ The ARM Reference Manual is available here:
 
 */
 
-
-// =============================================================================
-
-// GenMPAMAtEL()
-// =============
-// Returns MPAMinfo for the specified EL.
-// May be called if MPAM is not implemented (but in an version that supports
-// MPAM), MPAM is disabled, or in AArch32.  In AArch32, convert the mode to
-// EL if can and use that to drive MPAM information generation.  If mode
-// cannot be converted, MPAM is not implemented, or MPAM is disabled return
-// default MPAM information for the current security state.
-
-// From https://developer.arm.com/documentation/ddi0602/2023-09/Shared-Pseudocode/shared-functions-mpam?lang=en#impl-shared.GenMPAMatEL.2
-// The whole logic is too complex for our simple use, so we return the base value of the return type.
-
-// MPAMinfo GenMPAMAtEL(AccessType acctype, bits(2) el)
-func GenMPAMAtEL(acctype: AccessType, el: bits(2)) => MPAMinfo
-begin
-  var x : MPAMinfo;
-  return x;
-end;
-
 // =============================================================================
 
 // IsAligned()
