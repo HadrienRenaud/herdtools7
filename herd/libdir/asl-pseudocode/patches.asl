@@ -95,23 +95,6 @@ end;
 
 // =============================================================================
 
-// ELStateUsingAArch32K()
-// ======================
-// Returns (known, aarch32):
-//   'known'   is FALSE for EL0 if the current Exception level is not EL0 and EL1 is
-//             using AArch64, since it cannot determine the state of EL0; TRUE otherwise.
-//   'aarch32' is TRUE if the specified Exception level is using AArch32; FALSE otherwise.
-
-// From https://developer.arm.com/documentation/ddi0602/2023-09/Shared-Pseudocode/shared-functions-system?lang=en#impl-shared.ELStateUsingAArch32K.2
-// We are always on AArch64
-
-func ELStateUsingAArch32K(el:bits(2), secure:boolean) => (boolean, boolean)
-begin
-    return (TRUE, FALSE);
-end;
-
-// =============================================================================
-
 // ProcState
 // =========
 // Processor state bits.
@@ -159,18 +142,16 @@ var PSTATE: collection {
 
 // =============================================================================
 
-// GenerateAddress()
-// =================
-// Generate and address by adding a pointer with an offset and returning the result.
-// If FEAT_CPA2 is implemented, the pointer arithmetic is checked.
+// PointerCheckAtEL()
+// ==================
+// Apply Checked Pointer Arithmetic at the specified EL.
 
-// From https://developer.arm.com/documentation/ddi0602/2023-09/Shared-Pseudocode/shared-functions-system?lang=en#impl-shared.GenerateAddress.3
-// We don't want the checked pointer arithmetic.
-// LUC simplify because failure of slice operatin on symbolic address.
+// We disable Checked Pointer Arithmetic.
 
-func AddressAdd(base:bits(64), offset:bits(64), accdesc:AccessDescriptor) => bits(64)
+func PointerCheckAtEL(el: bits(el), result: bits(64), base: bits(64),
+                      cptm_detected: boolean) => bits(64)
 begin
-  return base + offset;
+  return result;
 end;
 
 // =============================================================================

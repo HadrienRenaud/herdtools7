@@ -537,6 +537,22 @@ begin
   return;
 end;
 
+// =============================================================================
+
+// SecureOnlyImplementation()
+// ==========================
+// Returns TRUE if the security state is always Secure for this implementation.
+
+// Originally IMPDEF in the Arm ARM
+
+func SecureOnlyImplementation() => boolean
+begin
+  return FALSE;
+end;
+
+// =============================================================================
+
+
 // Type of underlying accesses (same order as lib/access.mli),
 // as recorder un events.
 
