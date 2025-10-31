@@ -31,11 +31,6 @@ begin
   return TRUE;
 end;
 
-func IsAligned(x:integer, y:integer) => boolean
-begin
-  return TRUE;
-end;
-
 // =============================================================================
 
 // CheckSPAlignment()
