@@ -193,16 +193,6 @@ end;
 
 // =============================================================================
 
-// UsingAArch32()
-// ==============
-// Return TRUE if the current Exception level is using AArch32, FALSE if using AArch64.
-// Let us return FALSE, called by BranchTo(...) for checking tgt address size.
-
-func UsingAArch32() => boolean
-begin
-  return FALSE;
-end;
-
 // MemSingleGranule()
 // ==================
 // When FEAT_LSE2 is implemented, for some memory accesses if all bytes
