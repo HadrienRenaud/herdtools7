@@ -18,27 +18,11 @@ The ARM Reference Manual is available here:
 
 */
 
+// Select some default fieldsets of some registers with conditional bitfields
 
-// =============================================================================
+type MPAMIDR_EL1_Type of MPAMIDR_EL1_Type_fieldset_1;
+type MPAM1_EL1_Type of MPAM1_EL1_Type_fieldset_1;
 
-// GenMPAMAtEL()
-// =============
-// Returns MPAMinfo for the specified EL.
-// May be called if MPAM is not implemented (but in an version that supports
-// MPAM), MPAM is disabled, or in AArch32.  In AArch32, convert the mode to
-// EL if can and use that to drive MPAM information generation.  If mode
-// cannot be converted, MPAM is not implemented, or MPAM is disabled return
-// default MPAM information for the current security state.
-
-// From https://developer.arm.com/documentation/ddi0602/2023-09/Shared-Pseudocode/shared-functions-mpam?lang=en#impl-shared.GenMPAMatEL.2
-// The whole logic is too complex for our simple use, so we return the base value of the return type.
-
-// MPAMinfo GenMPAMAtEL(AccessType acctype, bits(2) el)
-func GenMPAMAtEL(acctype: AccessType, el: bits(2)) => MPAMinfo
-begin
-  var x : MPAMinfo;
-  return x;
-end;
 
 // =============================================================================
 
@@ -68,19 +52,6 @@ end;
 func CheckSPAlignment()
 begin
   return;
-end;
-
-// =============================================================================
-
-// BigEndian()
-// ===========
-
-// From https://developer.arm.com/documentation/ddi0602/2023-09/Shared-Pseudocode/shared-functions-memory?lang=en#impl-shared.BigEndian.1
-// We only use small-endian
-
-func BigEndian(acctype: AccessType) => boolean
-begin
-  return FALSE;
 end;
 
 // =============================================================================
@@ -118,23 +89,6 @@ func AArch64_TranslateAddress(address:bits(64), accdesc:AccessDescriptor, aligne
 begin
   var full_addr : FullAddress;
   return CreateAddressDescriptor(address, full_addr, NormalWBISHMemAttr(), accdesc);
-end;
-
-// =============================================================================
-
-// ELStateUsingAArch32K()
-// ======================
-// Returns (known, aarch32):
-//   'known'   is FALSE for EL0 if the current Exception level is not EL0 and EL1 is
-//             using AArch64, since it cannot determine the state of EL0; TRUE otherwise.
-//   'aarch32' is TRUE if the specified Exception level is using AArch32; FALSE otherwise.
-
-// From https://developer.arm.com/documentation/ddi0602/2023-09/Shared-Pseudocode/shared-functions-system?lang=en#impl-shared.ELStateUsingAArch32K.2
-// We are always on AArch64
-
-func ELStateUsingAArch32K(el:bits(2), secure:boolean) => (boolean, boolean)
-begin
-    return (TRUE, FALSE);
 end;
 
 // =============================================================================
@@ -239,16 +193,6 @@ end;
 
 // =============================================================================
 
-// UsingAArch32()
-// ==============
-// Return TRUE if the current Exception level is using AArch32, FALSE if using AArch64.
-// Let us return FALSE, called by BranchTo(...) for checking tgt address size.
-
-func UsingAArch32() => boolean
-begin
-  return FALSE;
-end;
-
 // MemSingleGranule()
 // ==================
 // When FEAT_LSE2 is implemented, for some memory accesses if all bytes
@@ -272,6 +216,8 @@ func MemSingleGranule() => integer
     return size;
   end;
 
+// =============================================================================
+
 // CheckOriginalSVEEnabled()
 // =========================
 // Checks for traps on SVE instructions and instructions that access SVE System
@@ -283,24 +229,7 @@ begin
   return;
 end;
 
-// Here because it is defined 2 times in the release
-
-// SecurityState
-// =============
-// The Security state of an execution context
-
-type SecurityState of enumeration {
-    SS_NonSecure,
-    SS_Root,
-    SS_Realm,
-    SS_Secure
-};
-
-constant VMID_NONE : bits(16) = Zeros{16};
-constant ASID_NONE : bits(16) = Zeros{16};
-
-// X - accessor
-// ============
+// =============================================================================
 
 accessor X{width}(n : integer) <=> value : bits(width)
 begin

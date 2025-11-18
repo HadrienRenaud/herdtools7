@@ -1,54 +1,60 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2022-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
+
+    implementations-vmsa.asl
+    ------------------------
+
+This file is a list of implementations for use in herd of functions left non-
+-implemented in the ARM Reference Manual. We copy the explanations from it.
+
+The ARM Reference Manual is available here:
+    https://developer.arm.com/documentation/ddi0602/2025-09/
+
+The first two type declarations have been extracted from the ARM Reference
+manual with a regex search.
+We suppose that they are enough for our experiments.
+
+The rest of the file are hand-written implementations: they are mostly the
+smallest AST that would type-check, but sometimes also call some logic relative
+to herd primitives.
+The Arm ARM does not contain any implementations for those functions. This file
+provide a possible implementation for those functions. For some of those
+declarations, the Arm ARM does not provide any implementation.
+
+Those declarations are made to be included with the rest of implementations in
+implementations.asl, in the case where stage one translation is activated.
+*/
+
+
+// SynchronizeContext()
+// ====================
+// Context Synchronization event, includes Instruction Fetch Barrier effect
 
 func SynchronizeContext()
 begin
  return;
 end;
 
+// ThisInstrLength()
+// =================
+
 func ThisInstrLength() => integer
 begin
   return 32;
 end;
 
+// IsPhysicalSErrorPending()
+// =========================
+// Returns TRUE if a physical SError interrupt is pending.
+
 func IsPhysicalSErrorPending() => boolean
 begin
   return FALSE;
 end;
-
-
-// IsExternalAbortTakenSynchronously()
-// ===================================
-// Return an implementation specific value:
-// TRUE if the fault returned for the access can be taken synchronously,
-// FALSE otherwise.
-//
-// This might vary between accesses, for example depending on the error type
-// or memory type being accessed.
-// External aborts on data accesses and translation table walks on data accesses
-// can be either synchronous or asynchronous.
-//
-// When FEAT_DoubleFault is not implemented, External aborts on instruction
-// fetches and translation table walks on instruction fetches can be either
-// synchronous or asynchronous.
-// When FEAT_DoubleFault is implemented, all External abort exceptions on
-// instruction fetches and translation table walks on instruction fetches
-// must be synchronous.
-// Luc: Dubious, FALSE or TRUE ?
-// Luc: Dead code, never called
-
-// type Fatal of exception {-};
-
-//func
-//  IsExternalAbortTakenSynchronously
-//    (memstatus:PhysMemRetStatus,
-//     iswrite:boolean,
-//     desc:AddressDescriptor,
-//     size:integer,
-//     accdesc:AccessDescriptor) => boolean
-//begin
-//  __debug__(memstatus);
-//  throw Fatal {-};
-//  return FALSE;
-//end;
 
 // PendSErrorInterrupt()
 // =====================
@@ -59,15 +65,34 @@ begin
   return;
 end;
 
+// AArch64.PAMax()
+// ===============
+// Returns the IMPLEMENTATION DEFINED maximum number of bits capable of representing
+// physical address for this processor
+// Let us define it.
 
-// WatchpointRelatedSyndrome()
-// ===========================
-// Update common Watchpoint related fields.
-
-func
-  WatchpointRelatedSyndrome(fault:FaultRecord,vaddress:bits(64))
-    => bits(24)
+func AArch64_PAMax() => integer
 begin
-  return Zeros{24};
+    return 48;
+end;
+
+// AArch64.S1TxSZFaults()
+// ======================
+// Detect whether configuration of stage 1 TxSZ field generates a fault
+// Luc: Override: does not occur, never.
+
+func AArch64_S1TxSZFaults (regime:Regime,walkparams:S1TTWParams) => boolean
+begin
+  return FALSE;
+end;
+
+// ExternalInvasiveDebugEnabled()
+// ==============================
+// The definition of this function is IMPLEMENTATION DEFINED.
+// In the recommended interface, this function returns the state of the DBGEN signal.
+
+func ExternalInvasiveDebugEnabled() => boolean
+begin
+    return FALSE;
 end;
 

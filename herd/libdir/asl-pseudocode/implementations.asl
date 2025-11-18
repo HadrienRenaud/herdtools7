@@ -12,7 +12,7 @@ This file is a list of implementations for use in herd of functions left non-
 -implemented in the ARM Reference Manual. We copy the explanations from it.
 
 The ARM Reference Manual is available here:
-    https://developer.arm.com/documentation/ddi0602/2023-09/
+    https://developer.arm.com/documentation/ddi0602/2025-09/
 
 The first two type declarations have been extracted from the ARM Reference
 manual with a regex search.
@@ -21,20 +21,32 @@ We suppose that they are enough for our experiments.
 The rest of the file are hand-written implementations: they are mostly the
 smallest AST that would type-check, but sometimes also call some logic relative
 to herd primitives.
-
+The Arm ARM does not contain any implementations for those functions. This file
+provide a possible implementation for those functions. For some of those
+declarations, the Arm ARM does not provide any implementation.
 
 */
 
 
 // =============================================================================
 
+// Non present in shared-pseudocode, they are here because their types are
+// needed by shared_pseudocode.
+
+// The types MAIR_EL1_Type, S2PIR_EL2_Type, SCR_Type, and SCTLR_EL1_Type are
+// automatically generated from the XML sources released by Arm.
+
 type MAIRType of MAIR_EL1_Type;
 type S2PIRType of S2PIR_EL2_Type;
 type S1PIRType of S2PIRType;
 type SCRType of SCR_Type;
-
+type SCTLRType of SCTLR_EL1_Type;
 
 // =============================================================================
+
+// Initialisation function for system registers.
+// By default, registers have a zero value, which is not good enough in our
+// case for some system registers.
 
 func _SetUpRegisters (is_vmsa: boolean)
 begin
@@ -61,6 +73,8 @@ end;
 
 // =============================================================================
 
+// The various SP registers are not declared in shared_pseudocode.
+
 var _SP_EL0: bits(64);
 
 accessor SP_EL0() <=> v: bits(64)
@@ -74,7 +88,18 @@ begin
   end;
 end;
 
+var SP_EL0: bits(64);
+
 // =============================================================================
+
+// ConstrainUnpredictableBool()
+// ============================
+// This is a variant of the ConstrainUnpredictable function where the result is either
+// Constraint_TRUE or Constraint_FALSE.
+
+// The ConstrainUnpredictableBool function is used by the ASL code to make
+// non-deterministic choices. We thus implement it as a newly generated
+// symbolic variable.
 
 func ConstrainUnpredictableBool(which:Unpredictable) => boolean
 begin
@@ -83,67 +108,34 @@ end;
 
 // =============================================================================
 
+// Not declared in shared_pseudoocode
+
+// We only implement the mininum required features.
+
 func IsFeatureImplemented(f : Feature) => boolean
 begin
-  return FALSE;
-end;
-
-// =============================================================================
-
-func HaveAArch32() => boolean
-begin
-  return FALSE;
-end;
-
-// =============================================================================
-
-func HaveAArch64() => boolean
-begin
-  return TRUE;
-end;
-
-// =============================================================================
-
-// HaveEL()
-// ========
-// Return TRUE if Exception level 'el' is supported
-
-func HaveEL(el: bits(2)) => boolean
-begin
-    if el IN {EL1,EL0} then
-        return TRUE;                             // EL1 and EL0 must exist
-    else
-        return FALSE; // boolean IMPLEMENTATION_DEFINED;
-    end;
-end;
-
-// =============================================================================
-
-// ClearExclusiveByAddress()
-// =========================
-// Clear the global Exclusives monitors for all PEs EXCEPT processorid if they
-// record any part of the physical address region of size bytes starting at paddress.
-// It is IMPLEMENTATION DEFINED whether the global Exclusives monitor for processorid
-// is also cleared if it records any part of the address region.
-
-func ClearExclusiveByAddress(paddress : FullAddress, processorid : integer, size : integer)
-begin
-  pass;
+  case f of
+    when FEAT_AA64EL0 => return TRUE;
+    otherwise => return FALSE;
+  end;
 end;
 
 // =============================================================================
 
 // InstructionSynchronizationBarrier()
 // ===================================
+
+// Simply a primitive call that will generate the correct effect.
+
 func InstructionSynchronizationBarrier()
 begin
   primitive_isb();
 end;
 
-// =============================================================================
-
 // DataMemoryBarrier()
 // ===================
+
+// Simply a primitive call that will generate the correct effect.
 
 func DataMemoryBarrier(domain : MBReqDomain, types : MBReqTypes)
 begin
@@ -153,6 +145,7 @@ end;
 // DataSynchronizationBarrier()
 // ============================
 
+// Simply a primitive call that will generate the correct effect.
 // nXS is not implemented in herd
 
 func DataSynchronizationBarrier
@@ -170,10 +163,30 @@ end;
 // Report the hint passed to BranchTo() and BranchToAddr(), for consideration when processing
 // the next instruction.
 
+// We do not support any hint.
+
 func Hint_Branch(hint : BranchType)
 begin
   return;
 end;
+
+// =============================================================================
+
+// SecureOnlyImplementation()
+// ==========================
+// Returns TRUE if the security state is always Secure for this implementation.
+
+// Is Implementation defined in the Arm ARM.
+
+func SecureOnlyImplementation() => boolean
+begin
+  return FALSE;
+end;
+
+// =============================================================================
+
+// Code used by our interface with herd, in either `physmem-std.asl` or
+// `physmem-vmsa.asl`
 
 // Type of underlying accesses (same order as lib/access.mli),
 // as recorder un events.

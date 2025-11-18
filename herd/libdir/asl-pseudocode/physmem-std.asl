@@ -37,8 +37,6 @@ end;
 // Exclusive access on based on virtual addresses
 //
 
-// =============================================================================
-
 // AArch64.MarkExclusiveVA()
 // =========================
 // Optionally record an exclusive access to the virtual address region of size bytes
@@ -51,8 +49,6 @@ func AArch64_MarkExclusiveVA
 begin
   RESADDR = address;
 end;
-
-// =============================================================================
 
 // AArch64.IsExclusiveVA()
 // =======================
@@ -79,8 +75,6 @@ begin
   RESADDR = Zeros{64};
   return SuccessVA;
 end;
-
-// =============================================================================
 
 // ExclusiveMonitorsStatus()
 // =========================
@@ -133,3 +127,10 @@ func ClearExclusiveLocal(processorid : integer)
 begin
   pass;
 end;
+
+func ClearExclusiveByAddress(paddress : FullAddress, processorid : integer, size : integer)
+begin
+  pass;
+end;
+
+

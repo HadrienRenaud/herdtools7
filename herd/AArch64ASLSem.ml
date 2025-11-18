@@ -1075,16 +1075,15 @@ module Make (TopConf : AArch64Sig.Config) (V : Value.AArch64ASL) :
          in
          List.map
            (fun (name, ty) ->
-             match ty.desc with
-             | T_Bits (e_length, []) -> (
-                 match e_length.desc with
-                 | E_Literal (L_Int z) ->
-                     ( name,
-                       Constant.Concrete
-                         (ASLScalar.S_BitVector
-                            (Asllib.Bitvector.zeros (Z.to_int z))) )
-                 | _ -> assert false)
-             | _ -> assert false)
+             let e_length =
+               match ty.desc with T_Bits (e, []) -> e | _ -> assert false
+             in
+             let length =
+               match e_length.desc with
+               | E_Literal (L_Int z) -> Z.to_int z
+               | _ -> assert false
+             in
+             (name, Constant.Concrete (ASLScalar.zeros length)))
            proc_state_fields
          |> StringMap.from_bindings)
 

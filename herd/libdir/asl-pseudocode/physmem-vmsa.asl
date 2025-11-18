@@ -65,6 +65,9 @@ begin
   end;
 end;
 
+// =============================================================================
+// Exclusives handling
+
 // =========================================
 // We simulate the exclusives "global" monitor
 
@@ -99,9 +102,7 @@ begin
   let paddr = paddress.address;
   RESADDR = paddr;
   DoRegisterAddress(paddr);
-//  __debug__(RESADDR,paddr);
 end;
-
 
 // IsExclusiveGlobal()
 // ===================
@@ -112,13 +113,11 @@ end;
 func IsExclusiveGlobal (paddress : FullAddress, processorid : integer, size : integer) => boolean
 begin
   _SuccessPA = SomeBoolean();
-//  __debug__(_SuccessPA);
 
   if _SuccessPA then
     let reserved = RESADDR;
     let paddr = paddress.address;
     let cond_exclusive_global = paddr == reserved;
-//    __debug__(paddr,reserved,cond_exclusive_global);
     CheckProp(cond_exclusive_global);
     DoRegisterAddress(paddr);
   end;
@@ -128,7 +127,6 @@ end;
 
 func ExclusiveMonitorsStatus() => bit
 begin
-//  __debug__(_SuccessPA);
   return if _SuccessPA then '0' else '1';
 end;
 
@@ -178,3 +176,9 @@ func ClearExclusiveLocal(processorid : integer)
 begin
   pass;
 end;
+
+func ClearExclusiveByAddress(paddress : FullAddress, processorid : integer, size : integer)
+begin
+  pass;
+end;
+

@@ -1,21 +1,52 @@
+/*
+ * SPDX-FileCopyrightText: Copyright 2022-2023 Arm Limited and/or its affiliates <open-source-office@arm.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 
-// AArch64.PAMax()
-// ===============
-// Returns the IMPLEMENTATION DEFINED maximum number of bits capable of representing
-// physical address for this processor
-// Let us define it.
+/*
 
-func AArch64_PAMax() => integer
-begin
-    return 48;
-end;
+    patches-vmsa.asl
+    ----------------
+
+This file is a list of re-implementations of ASL functions from the ARM
+Reference Manual. They are completely re-written or simply edited by hand. When
+re-written completely, this is often time the minimal code that type-checks.
+The code is also translated from ASLv0 to ASLv1 by hand.
+
+The ARM Reference Manual is available here:
+    https://developer.arm.com/documentation/ddi0602/2023-09/
+
+This file is complementary to the file patches.asl, to be included with it when
+Stage 1 Translation is activated.
+
+*/
+
+// This constant is set to 3 in the Arm ARM. We change it to ensure a flat
+// translation table.
+
+// Used in DecodeDescriptorType.
 
 constant FINAL_LEVEL: integer = 1;
+
+// AArch64.S1StartLevel()
+// ======================
+// Compute the initial lookup level when performing a stage 1 translation
+// table walk
+
+// We fix it to 1.
+
+func AArch64_S1StartLevel(walkparams: S1TTWParams) => integer
+begin
+  return 1;
+end;
 
 // AArch64.S1SLTTEntryAddress()
 // ============================
 // Compute the first stage 1 translation table descriptor address within the
 // table pointed to by the base at the start level
+
+// We use a primitive to compute the page table location, and disable pointer
+// arithmetic.
 
 func AArch64_S1SLTTEntryAddress(level:integer, walparams:S1TTWParams,
                                 ia:bits(64), tablebase:FullAddress)
@@ -25,19 +56,6 @@ begin
     descaddress.address = ComputePtePrimitive(ia);
     descaddress.paspace = tablebase.paspace;
     return descaddress;
-end;
-
-// AArch64.S1AMECFault()
-// =====================
-// Returns TRUE if a Translation fault should occur for Realm EL2 and Realm EL2&0
-// stage 1 translated addresses to Realm PA space.
-// Temporary: do not fault
-
-func AArch64_S1AMECFault{N}
-  (wallparams:S1TTWParams, paspace:PASpace,regime:Regime,descriptor:bits(N))
-=> boolean
-begin
-    return FALSE;
 end;
 
 // AArch64.OAOutOfRange()
@@ -51,15 +69,13 @@ begin
   return FALSE;
 end;
 
-func AArch64_S1StartLevel(walkparams: S1TTWParams) => integer
-begin
-  return 1;
-end;
-
 // AArch64.S1DirectBasePermissions()
 // =================================
 // Computes the stage 1 direct base permissions
 // A choice of reasonable permissions
+
+// The current implementation in the Arm ARM introduces 4 more executions which
+// introduce a significant slowdown.
 
 func
   AArch64_S1DirectBasePermissions
@@ -89,6 +105,8 @@ end;
 // Given the final walk state (a page or block descriptor), map the untranslated
 // input address bits to the output address
 
+// We deactivate checked pointer arithmetic
+
 func StageOA(ia:bits(64),d128:bit,tgx:TGx,walkstate:TTWState) => FullAddress
 begin
   var oa : FullAddress;
@@ -101,6 +119,7 @@ end;
 // ====================
 // Extract the address embedded in a block and page descriptor pointing to the
 // base of a memory block
+
 func
   AArch64_S1LeafBase{N}(descriptor:bits(N),walkparams:S1TTWParams,level:integer)
   => bits(56)
@@ -160,44 +179,6 @@ begin
   throw SilentExit {-};
 end;
 
-
-// PEErrorState()
-// ==============
-// Returns the error state of the PE on taking an error exception:
-// The PE error state reported to software through the exception syndrome also
-// depends on how the exception is taken, and so might differ from the value
-// returned from this function.
-// LUC: Dubious
-
-func PEErrorState(fault:FaultRecord) => ErrorState
-begin
-  return ErrorState_UEO;
-end;
-
-// IsFault()
-// =========
-// Return TRUE if a fault is associated with status returned by memory.
-// Luc: and then call  HandleExternalAbort()
-//func IsFault(retstatus:PhysMemRetStatus) => boolean
-// begin
-//  return FALSE;
-// end;
-
-
-// HandleExternalAbort()
-// =====================
-// Takes a Synchronous/Asynchronous abort based on fault.
-// Luc Should not be called.
-func
-  HandleExternalAbort
-    (memretstatus:PhysMemRetStatus,iswrite:boolean,
-     memaddrdesc:AddressDescriptor,size:integer,
-     accdesc:AccessDescriptor)
-begin
-//  assert FALSE;
-  return;
-end;
-
 // AArch64.GetS1TTWParams()
 // ========================
 // Returns stage 1 translation table walk parameters from respective controlling
@@ -224,33 +205,12 @@ end;
 // =======================
 // Get the value of the contiguous bit
 // Luc: Returns 0 to avoid faults in 128 bit mode
+// Note: it is a valid implementation.
 
 func AArch64_ContiguousBit{N}
   (tgx:TGx, d128:bit,level:integer, descriptor:bits(N)) => bit
 begin
   return '0';
-end;
-
-
-// AArch64.S1TxSZFaults()
-// ======================
-// Detect whether configuration of stage 1 TxSZ field generates a fault
-// Luc: Override: does not occur, never.
-
-func AArch64_S1TxSZFaults (regime:Regime,walkparams:S1TTWParams) => boolean
-begin
-  return FALSE;
-end;
-
-// AArch64.CheckDebug()
-// ====================
-// Called on each access to check for a debug exception or entry to Debug state.
-
-func AArch64_CheckDebug
-  (vaddress:bits(64), accdesc:AccessDescriptor, size:integer)
-=> FaultRecord
-begin
-    return NoFault(accdesc, vaddress);
 end;
 
 // CreateAccDescAtomicOp()
@@ -339,3 +299,4 @@ begin
       return dbm == '1';
   end;
 end;
+
