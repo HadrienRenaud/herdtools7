@@ -256,69 +256,78 @@ module NativeBackend (C : Config) = struct
 
   let fail exn _a = raise exn
 
-  module Primitives = struct
-    let return_one v = return [ return v ]
+  module RawPrimitives = struct
+    type v = value
+    type nonrec 'a m = 'a m
+    type ii = unit
 
-    (* All primitives ignore their parameters *)
-    let uint = function
-      | [ NV_Literal (L_BitVector bv) ] ->
-          L_Int (Bitvector.to_z_unsigned bv) |> nv_literal |> return_one
-      | [ v ] -> mismatch_type v [ default_t_bits ]
-      | li ->
-          Error.fatal_unknown_pos
-          @@ Error.BadArity (Dynamic, "UInt", 1, List.length li)
+    let return = return
+    let bind = bind
 
-    let sint = function
-      | [ NV_Literal (L_BitVector bv) ] ->
-          L_Int (Bitvector.to_z_signed bv) |> nv_literal |> return_one
-      | [ v ] -> mismatch_type v [ default_t_bits ]
-      | li ->
-          Error.fatal_unknown_pos
-          @@ Error.BadArity (Dynamic, "SInt", 1, List.length li)
+    let arity_error name ~expected ~actual =
+      Error.fatal_unknown_pos @@ Error.BadArity (Dynamic, name, expected, actual)
 
-    let dec_str = function
-      | [ NV_Literal (L_Int i) ] ->
-          L_String (Z.to_string i) |> nv_literal |> return_one
-      | [ v ] -> mismatch_type v [ integer' ]
-      | li ->
-          Error.fatal_unknown_pos
-          @@ Error.BadArity (Dynamic, "DecStr", 1, List.length li)
+    let integer_expected x =
+      let open Error in
+      fatal_unknown_pos (MismatchType (debug_value x, [ integer' ]))
 
-    let hex_str = function
-      | [ NV_Literal (L_Int i) ] ->
-          L_String (Printf.sprintf "%a" Z.sprint i) |> nv_literal |> return_one
-      | [ v ] -> mismatch_type v [ integer' ]
-      | li ->
-          Error.fatal_unknown_pos
-          @@ Error.BadArity (Dynamic, "HexStr", 1, List.length li)
+    let real_expected x =
+      let open Error in
+      fatal_unknown_pos (MismatchType (debug_value x, [ T_Real ]))
 
-    let ascii_integer = integer_range' !$0 !$127
+    let expect_z = function
+      | NV_Literal (L_Int z) -> z
+      | v -> integer_expected v
 
-    let ascii_str = function
-      | [ NV_Literal (L_Int i) ] ->
-          if Z.(zero <= i && i <= of_int 127) then
-            L_String (char_of_int (Z.to_int i) |> String.make 1)
-            |> nv_literal |> return_one
-          else
-            Error.fatal_unknown_pos
-            @@ Error.BadPrimitiveArgument
-                 ( "AsciiStr",
-                   "greater than or equal to 0 and less than or equal to 127" )
-      | [ v ] -> mismatch_type v [ ascii_integer ]
-      | li ->
-          Error.fatal_unknown_pos
-          @@ Error.BadArity (Dynamic, "AsciiStr", 1, List.length li)
+    let expect_real = function
+      | NV_Literal (L_Real q) -> q
+      | v -> real_expected v
 
-    let floor_log2 = function
-      | [ NV_Literal (L_Int i) ] ->
-          if Z.gt i Z.zero then [ L_Int (Z.log2 i |> Z.of_int) |> nv_literal ]
-          else
-            Error.fatal_unknown_pos
-            @@ Error.BadPrimitiveArgument ("FloorLog2", "greater than 0")
-      | [ v ] -> mismatch_type v [ integer' ]
-      | li ->
-          Error.fatal_unknown_pos
-          @@ Error.BadArity (Dynamic, "Log2", 1, List.length li)
+    let bitvector_expected z x =
+      let open Error in
+      fatal_unknown_pos
+        (MismatchType (debug_value x, [ T_Bits (expr_of_z z, []) ]))
+
+    let expect_bits_z z = function
+      | NV_Literal (L_BitVector bv)
+        when Z.fits_int z && Int.equal (Bitvector.length bv) (Z.to_int z) ->
+          bv
+      | v -> bitvector_expected z v
+
+    let u_int () ~n ~x =
+      let z = expect_z n in
+      let bv = expect_bits_z z x in
+      L_Int (Bitvector.to_z_unsigned bv) |> nv_literal
+
+    let s_int () ~n ~x =
+      let z = expect_z n in
+      let bv = expect_bits_z z x in
+      L_Int (Bitvector.to_z_signed bv) |> nv_literal
+
+    let dec_str () ~x =
+      let z = expect_z x in
+      L_String (Z.to_string z) |> nv_literal
+
+    let hex_str () ~x =
+      let z = expect_z x in
+      L_String (Printf.sprintf "%a" Z.sprint z) |> nv_literal
+
+    let ascii_str () ~x =
+      let z = expect_z x in
+      if Z.(zero <= z && z <= of_int 127) then
+        L_String (char_of_int (Z.to_int z) |> String.make 1) |> nv_literal
+      else
+        Error.fatal_unknown_pos
+        @@ Error.BadPrimitiveArgument
+             ( "AsciiStr",
+               "greater than or equal to 0 and less than or equal to 127" )
+
+    let floor_log2 () ~x =
+      let z = expect_z x in
+      if Z.gt z Z.zero then L_Int (Z.log2 z |> Z.of_int) |> nv_literal
+      else
+        Error.fatal_unknown_pos
+        @@ Error.BadPrimitiveArgument ("FloorLog2", "greater than 0")
 
     let truncate q = Q.to_bigint q
 
@@ -332,87 +341,24 @@ module NativeBackend (C : Config) = struct
         if Q.den q = Z.one then Q.num q else truncate q |> Z.succ
       else truncate q
 
-    let wrap_real_to_int name f = function
-      | [ NV_Literal (L_Real q) ] -> L_Int (f q) |> nv_literal |> return_one
-      | [ v ] -> mismatch_type v [ T_Real ]
-      | li ->
-          Error.fatal_unknown_pos
-          @@ Error.BadArity (Dynamic, name, 1, List.length li)
+    let wrap_real_to_int f () ~x =
+      let q = expect_real x in
+      L_Int (f q) |> nv_literal
 
-    let round_down = wrap_real_to_int "RoundDown" floor
-    let round_up = wrap_real_to_int "RoundUp" ceiling
-    let round_towards_zero = wrap_real_to_int "RoundTowardsZero" truncate
-
-    let primitives =
-      let e_var x = E_Var x |> add_dummy_annotation in
-      let eoi i = expr_of_int i in
-      let binop = ASTUtils.binop in
-      let minus_one e = binop `SUB e (eoi 1) in
-      let pow_2 = binop `POW (eoi 2) in
-      let neg e = E_Unop (NEG, e) |> add_pos_from e in
-      (* [t_bits "N"] is the bitvector type of length [N]. *)
-      let t_bits x = T_Bits (e_var x, []) |> add_dummy_annotation in
-      (* [p ~parameters ~args ~returns name f] declares a primtive named [name]
-         with body [f], and signature specified by [parameters] [args] and
-         [returns]. *)
-      let p ?(parameters = []) ~args ?returns ?(se = false) name f =
-        let subprogram_type =
-          match returns with None -> ST_Procedure | _ -> ST_Function
-        in
-        let body = SB_Primitive se
-        and return_type = returns
-        and recurse_limit = None in
-        ( {
-            name;
-            parameters;
-            args;
-            body;
-            return_type;
-            subprogram_type;
-            recurse_limit;
-            qualifier = Some Pure;
-            override = None;
-            builtin = true;
-          },
-          (* All native primitives ignore parameters *)
-          fun _params args -> f args )
-      in
-      [
-        (let two_pow_n_minus_one = minus_one (pow_2 (e_var "N")) in
-         let returns = integer_range (eoi 0) two_pow_n_minus_one in
-         p
-           ~parameters:[ ("N", None) ]
-           ~args:[ ("x", t_bits "N") ]
-           ~returns "UInt" uint);
-        (let var_N = e_var "N" in
-         let two_pow_n_minus_one = pow_2 (minus_one var_N) in
-         let minus_two_pow_n_minus_one = neg two_pow_n_minus_one
-         and two_pow_n_minus_one_minus_one = minus_one two_pow_n_minus_one in
-         let if_0_then_0_else else_expr =
-           cond_expr (binop `EQ var_N zero_expr) zero_expr else_expr
-         in
-         let returns =
-           integer_range
-             (if_0_then_0_else minus_two_pow_n_minus_one)
-             (if_0_then_0_else two_pow_n_minus_one_minus_one)
-         in
-         p
-           ~parameters:[ ("N", None) ]
-           ~args:[ ("x", t_bits "N") ]
-           ~returns "SInt" sint);
-        p ~args:[ ("x", integer) ] ~returns:string "DecStr" dec_str;
-        p ~args:[ ("x", integer) ] ~returns:string "HexStr" hex_str;
-        p ~args:[ ("x", integer) ] ~returns:string "AsciiStr" ascii_str;
-        p ~args:[ ("x", integer) ] ~returns:integer "FloorLog2" floor_log2;
-        p ~args:[ ("x", real) ] ~returns:integer "RoundDown" round_down;
-        p ~args:[ ("x", real) ] ~returns:integer "RoundUp" round_up;
-        p
-          ~args:[ ("x", real) ]
-          ~returns:integer "RoundTowardsZero" round_towards_zero;
-      ]
+    let round_down = wrap_real_to_int floor
+    let round_up = wrap_real_to_int ceiling
+    let round_towards_zero = wrap_real_to_int truncate
   end
 
-  let primitives = Primitives.primitives
+  module Primitives = NativePrimitives.Make (RawPrimitives)
+
+  let primitives =
+    let signatures =
+      Builder.from_string `ASLv1 ~filename:"primitives.asl"
+        ~ast_string:PrimitivesSig.primitives_signatures
+    in
+    ASTUtils.plug_primitives signatures Primitives.primitives
+    |> List.map (fun (func, f) -> (func, f ()))
 end
 
 module StaticBackend = struct

@@ -238,7 +238,7 @@ begin pass; end;
 
 // -----------------------------------------------------------------------------
 
-// NOT NEEDED
+// NOT NEEDED, to be removed by PR #1589
 
 // read_pc() returns the current PC value
 func read_pc() => bits(64)

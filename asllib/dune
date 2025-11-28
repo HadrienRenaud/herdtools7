@@ -64,6 +64,17 @@
     (cat %{v0})
     (echo "|}")))))
 
+(rule
+ (deps primitives.asl)
+ (target PrimitivesSig.ml)
+ (action
+  (with-stdout-to
+   %{target}
+   (progn
+    (echo "let primitives_signatures = {|")
+    (cat %{deps})
+    (echo "|}")))))
+
 (library
  (name asllib)
  (modules
@@ -88,3 +99,14 @@
  (public_name primitives_to_ml)
  (libraries asllib str)
  (modules primitives_to_ml))
+
+(rule
+ (target NativePrimitives.ml.generated)
+ (deps primitives.asl)
+ (action
+  (run %{bin:primitives_to_ml} %{deps} %{target})))
+
+(rule
+ (aliases runtest update-primitives)
+ (action
+  (diff NativePrimitives.ml NativePrimitives.ml.generated)))
