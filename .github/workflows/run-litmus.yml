@@ -44,6 +44,7 @@ jobs:
           opam exec -- dune build litmus/litmus.exe internal/check_obs.exe
 
       - name: Run tests
-        run: make ${{ matrix.arch.make-test-target }} LITMUS=$(pwd)/_build/default/litmus/litmus.exe
+        run: make ${{ matrix.arch.make-test-target }} LITMUS=${LITMUS}
         env:
           ACCEL: tcg
+          LITMUS: ${{ github.workspace }}/_build/default/litmus/litmus.exe
