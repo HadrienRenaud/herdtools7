@@ -451,3 +451,20 @@ begin
     return _patched_AArch64_SetDirtyState(hd, dbm, accdesc, fault, fault_perm);
 end;
 
+// AArch64_S1CheckPermissions()
+// ============================
+// Checks whether stage 1 access violates permissions of target memory
+// and returns a fault record
+
+func AArch64_S1CheckPermissions(fault_in : FaultRecord, va : bits(64), size : integer,
+                                regime : Regime, walkstate : TTWState, walkparams : S1TTWParams,
+                                accdesc : AccessDescriptor) => FaultRecord
+begin
+    var accdesc2 = accdesc;
+    if accdesc2.modop == MemAtomicOp_CAS then
+       accdesc2.write = TRUE;
+    end ;
+
+    return _patched_AArch64_S1CheckPermissions(fault_in, va, size, regime, walkstate, walkparams,
+                                               accdesc2);
+end;
