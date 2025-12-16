@@ -358,39 +358,20 @@ end;
 // discard the executions where the CAS is a load, which is done in
 // PhysMemWrite and DataAbort.
 
-func
-  CreateAccDescAtomicOp
-    (modop:MemAtomicOp, acquire:boolean, release:boolean,
-     tagchecked:boolean, privileged:boolean, Rt: integer, Rs: integer) => AccessDescriptor
+func CreateAccDescAtomicOp(modop : MemAtomicOp, acquire : boolean, release : boolean,
+                           tagchecked : boolean, privileged : boolean, Rt : integer,
+                           Rs : integer) => AccessDescriptor
 begin
-    let Rt2: integer = -1;
-    let Rs2: integer = -1;
-
-    return CreateAccDescAtomicOp(modop, acquire, release, tagchecked, privileged, Rt, Rt2, Rs, Rs2);
+    return _patched_CreateAccDescAtomicOp(modop, acquire, release, tagchecked, privileged, Rt, Rs);
 end;
 
-func
-  CreateAccDescAtomicOp
-    (modop:MemAtomicOp, acquire:boolean, release:boolean,
-     tagchecked:boolean, privileged:boolean, Rt: integer, Rt2: integer, Rs: integer, Rs2: integer) => AccessDescriptor
+func CreateAccDescAtomicOp(modop : MemAtomicOp, acquire : boolean, release : boolean,
+                           tagchecked : boolean, privileged : boolean, Rt : integer,
+                           Rt2 : integer, Rs : integer, Rs2 : integer) => AccessDescriptor
 begin
-  var accdesc = NewAccDesc(AccessType_GPR);
-  accdesc.acqsc           = acquire;
-  accdesc.el              = if !privileged then EL0 else PSTATE.EL;
-  accdesc.relsc           = release;
-  accdesc.atomicop        = TRUE;
-  accdesc.modop           = modop;
-  accdesc.read            = TRUE;
+  var accdesc = _patched_CreateAccDescAtomicOp(modop, acquire, release, tagchecked, privileged, Rt, Rt2, Rs, Rs2);
 
-  // The next line is the one edited:
-  accdesc.write           = modop != MemAtomicOp_CAS || SomeBoolean();
-
-  accdesc.pan             = TRUE;
-  accdesc.tagchecked      = tagchecked;
-  accdesc.Rs              = Rs;
-  accdesc.Rs2             = Rs2;
-  accdesc.Rt              = Rt;
-  accdesc.Rt2             = Rt2;
+  accdesc.write = modop != MemAtomicOp_CAS || SomeBoolean();
 
   return accdesc;
 end;
@@ -467,16 +448,6 @@ begin
       CheckProp(UpdatedAF);
     end;
 
-    if hd == '0' then
-        return FALSE;
-    elsif !AArch64_SettingDirtyStatePermitted(fault, fault_perm) then
-        return FALSE;
-    elsif accdesc.acctype IN {AccessType_AT, AccessType_IC, AccessType_DC} then
-        return FALSE;
-    elsif !accdesc.write then
-        return FALSE;
-    else
-        return dbm == '1';
-    end;
+    return _patched_AArch64_SetDirtyState(hd, dbm, accdesc, fault, fault_perm);
 end;
 
