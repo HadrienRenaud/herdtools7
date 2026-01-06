@@ -27,7 +27,7 @@ jobs:
             with-type-check-asl: false
             job-name: "OCaml v4.08"
             dune-cache: "enabled"
-          - ocaml-version: "dune,zarith,menhir"
+          - ocaml-version: "dune,zarith,menhir,logs"
             with-type-check-asl: true
             dune-cache: "enabled-except-user-rules"
             job-name: "OCaml latest lts"

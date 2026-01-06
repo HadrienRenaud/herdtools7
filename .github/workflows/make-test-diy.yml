@@ -23,10 +23,10 @@ jobs:
         os:
           - ubuntu-latest
         cfg:
-          - ocaml-version: "ocaml-base-compiler.4.08.1,dune.3.10.0,zarith.1.13,menhir.20220210"
+          - ocaml-version: "ocaml-base-compiler.4.08.1,dune.3.10.0,zarith.1.13,menhir.20220210,logs.0.7.0"
             job-name: "OCaml v4.08"
             dune-cache: "enabled"
-          - ocaml-version: "dune,zarith,menhir"
+          - ocaml-version: "dune,zarith,menhir,logs"
             dune-cache: "enabled-except-user-rules"
             job-name: "OCaml latest lts"
 
