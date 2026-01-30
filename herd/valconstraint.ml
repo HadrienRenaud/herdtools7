@@ -60,9 +60,11 @@ module type S = sig
 
   type solution
 
-  type answer =
+  type 'a answer_gen =
     | NoSolns
-    | Maybe of solution *  cnstrnts
+    | Maybe of 'a
+
+  type answer = (solution * cnstrnts) answer_gen
 
   val pp_answer : answer -> string
 
@@ -70,6 +72,8 @@ module type S = sig
   val get_failed :  cnstrnts -> cnstrnt option
 
   val solve : cnstrnt list -> answer
+
+  val hint_solve : cnstrnt list -> cnstrnt list -> unit answer_gen
 end
 
 module type Config = sig
@@ -100,6 +104,8 @@ and type state = A.state =
     type state = A.state
     type arch_op = V.arch_op
     type arch_op1 = V.arch_op1
+
+    let ( @~ ) = List.rev_append
 
     type expr =
       | Atom of atom
@@ -159,10 +165,11 @@ and type state = A.state =
 
     type solution = V.solution
 
-    type answer =
+    type 'a answer_gen =
       | NoSolns
-      | Maybe of solution * cnstrnts
+      | Maybe of 'a
 
+    type answer = (solution * cnstrnts) answer_gen
 
     let pp_answer =
 
@@ -230,7 +237,8 @@ and type state = A.state =
         add_var v t |> add_vars_expr e
     | Failed _ | Warn _ -> t
 
-    let add_vars_cns cns = List.fold_left add_vars_cn (Part.create ()) cns
+    let add_vars_from part cns = List.fold_left add_vars_cn part cns
+    let add_vars_cns cns = add_vars_from (Part.create ()) cns
 
 (* Perform union-find *)
 
@@ -252,18 +260,32 @@ and type state = A.state =
         v
     let subst_expr m = map_expr (subst_atom m)
 
-    let subst_cn m cn k = match cn with
-    | Assign (v,Atom w) ->
-        let v = subst_atom m v
-        and w = subst_atom m w in
-        if V.compare v w = 0 then k else Assign (v,Atom w)::k
-    | Assign (v,e) ->
-        let v = subst_atom m v
-        and e = subst_expr m e in
-        Assign (v,e)::k
-    | Failed _ | Warn _ -> cn::k
+    let assign_vals v w =
+      match v, w with
+      | ((V.Val _ as val_), (V.Var _ as var_))
+        -> Assign (var_, Atom val_)
+      | _ -> Assign (v, Atom w)
 
-    let subst_cns soln cns = List.fold_right (subst_cn soln) cns []
+    let assign_expr v e =
+      match v, e with
+      | ((V.Val _ as val_), (Atom (V.Var _  as var_)))
+        -> Assign (var_, Atom val_)
+      | _ -> Assign (v, e)
+
+    let subst_cn m cn =
+      match cn with
+      | Assign (v,Atom w) ->
+          let v = subst_atom m v
+          and w = subst_atom m w in
+          if V.compare v w = 0 then None
+          else Some (assign_vals v w)
+      | Assign (v,e) ->
+          let v = subst_atom m v
+          and e = subst_expr m e in
+          Some (assign_expr v e)
+      | Failed _ | Warn _ -> Some cn
+
+    let subst_cns soln cns = List.filter_map (subst_cn soln) cns
 
 
 (* All together *)
@@ -531,13 +553,13 @@ let get_failed cns =
     module VarEnv = A.V.Solution
 
     let env_find csym m =
-      try VarEnv.find csym m with Not_found -> EqSet.empty
+      try VarEnv.find csym m with Not_found -> []
 
     let env_add csym c =
       VarEnv.update csym @@
         function
-        | None -> Some (EqSet.singleton c)
-        | Some old -> Some (EqSet.add c old)
+        | None -> Some [ c ]
+        | Some old -> Some (c :: old)
 
     let var2eq cs =
       (* Construct the map from x to all equations of the form [x = <e>] *)
@@ -546,7 +568,7 @@ let get_failed cns =
           match c with
           | Assign (V.Var csym,_) -> env_add csym c m
           | Assign (V.Val _,_)|Warn _|Failed _ -> m)
-       VarEnv.empty cs
+        VarEnv.empty cs
 
     module EqRel = InnerRel.Make(OrderedEq)
 
@@ -559,30 +581,19 @@ let get_failed cns =
         ns r
 
     let eq2g cs =
-      let cs =
-        List.map
-          (fun c ->
-            match c with
-            | Assign (V.Val _ as c,Atom (V.Var _ as y)) ->
-               Assign (y,Atom c)
-            | _ -> c)
-          cs in
       let m = var2eq cs in
       let add_rels eq0 e g =
         let add_rel csym g =
           let eqs = env_find csym m in
-          EqSet.fold (fun eq g -> EqRel.add (eq0,eq) g) eqs g in
+          List.fold_left (fun g eq -> (eq0,eq) :: g) g eqs
+        in
         fold_vars_expr add_rel e g in
-
-      let rel =
-        List.fold_left
-          (fun rel c ->
-            match c with
-            | Assign (_,e)  -> add_rels c e rel
-            | Warn _|Failed _ -> rel)
-          EqRel.empty cs in
-      let cs = EqSet.of_list cs in
-      cs,rel
+      List.fold_left
+        (fun rel c ->
+          match c with
+          | Assign (_,e)  -> add_rels c e rel
+          | Warn _|Failed _ -> rel) [] cs
+      |> EqRel.of_list
 
     (** [solv_one c sol eqs], where c is an equation, [sol] is a solution
      *   (map from variables to constants) and [eqs] is a list of equations,
@@ -591,9 +602,9 @@ let get_failed cns =
      *     - [sol] updated to add all the variable affections found;
      *     - [eqs] updated to add the unsolved equations.
      *)
-    let do_solve_one c sol =
+    let solve_one c sol acc =
       match c with
-      | Warn _|Failed _ -> sol,[c]
+      | Warn _|Failed _ -> sol, c :: acc
       | Assign (v0,e) ->
          begin
            let () =
@@ -607,42 +618,42 @@ let get_failed cns =
                  Printf.eprintf "%s\n%!" (pp_eq (Assign (v,e))) in
              match v,e with
              | V.Var x,Atom (V.Val atom) ->
-                add_sol x atom sol,[]
+                add_sol x atom sol, acc
              | V.Val c1,Atom (V.Val c2) ->
-                if V.Cst.eq c1 c2 then sol,[]
+                if V.Cst.eq c1 c2 then sol, acc
                 else raise Contradiction
              (* Last case below can occur when called on a
                 strongly connected component. *)
-             | _,_ -> sol,[Assign (v,e)]
+             | _,_ -> sol, Assign (v,e) :: acc
            with
            | Contradiction|Misc.Timeout as exn -> raise exn
            | exn ->
               if C.debug.Debug_herd.exc then raise exn ;
-              (sol,[Failed exn])
+              (sol, Failed exn :: acc)
          end
-
-    let solve_one c sol eqs = let sol,eq = do_solve_one c sol in sol,eq@eqs
 
     let same_eqs eqs1 eqs2 =  Misc.list_compare OrderedEq.compare eqs1 eqs2 = 0
 
-    let topo_step cs (sol,eqs) =
-      match cs with
-      | [] -> assert false
-      | [c] -> solve_one c sol eqs
-      | scc ->
-          (* Iterate solve, until fixpoint *)
-          let solve_step sol scc =
-            List.fold_right
-              (fun c (sol,scc) ->
-                let sol,eq = do_solve_one c sol in
-                (sol,(eq@scc)))
-              scc (sol,[])  in
-          let rec solve_rec sol scc0 =
-            let sol,scc = solve_step sol scc in
-            if same_eqs scc0 scc then sol,scc
-            else solve_rec sol scc in
-          let sol,scc = solve_rec sol scc in
-          sol,scc@eqs
+    let topo_step =
+      (* Perform a solving step on each equation in solve_step *)
+      let solve_step sol scc =
+        List.fold_right
+          (fun c (sol,scc) -> solve_one c sol scc)
+          scc (sol, []) in
+      (* Iterate solve, until fixpoint *)
+      let rec solve_rec sol0 scc0 acc =
+        let sol, scc = solve_step sol0 scc0 in
+        (* same_eqs scc0 scc implies sol == sol0, but the physical test is
+           faster, so we use it as first approximation. *)
+        if sol == sol0 && same_eqs scc0 scc
+        then (sol, scc @~ acc)
+        else solve_rec sol scc acc in
+      (* General function, we distinguish the simple case where the scc is a singleton. *)
+      fun cs (sol, eqs) ->
+        match cs with
+        | [] -> assert false
+        | [c] -> solve_one c sol eqs
+        | scc -> solve_rec sol scc eqs
 
     (** [solve_top_step [cs] tries to solve the system [cs] by sorting [cs]
       * topologically, returns [(sol,cs,sccs)], where
@@ -654,7 +665,8 @@ let get_failed cns =
       * some contradictory equation cst = cst`
       *)
     let solve_topo_step cs =
-      let ns,r = eq2g cs in
+      let r = eq2g cs in
+      let ns = EqSet.of_list cs in
       if debug > 0 then begin
         if false then begin
           prerr_endline "** Solve topo **" ;
@@ -713,5 +725,40 @@ let get_failed cns =
         solve_std cs
       else
         solve_topo cs
+
+    let hint_solve new_cs old_cs =
+      if C.old_solver then
+        solve_std (new_cs @~ old_cs) |> function
+        | NoSolns -> NoSolns
+        | Maybe _ -> Maybe ()
+      else
+        (* Contents of solve_topo *)
+        let new_cs, old_cs =
+          let t = add_vars_cns old_cs in
+          let t = add_vars_from t new_cs in
+          let () = List.iter (uf_cn t) old_cs in
+          let () = List.iter (uf_cn t) new_cs in
+          let m = Part.as_solution t in
+          (subst_cns m old_cs, subst_cns m new_cs)
+        in
+        let cs = new_cs @~ old_cs in
+        try
+          let r = eq2g cs in
+          let sol, cs =
+            EqRel.scc_kont topo_step (V.Solution.empty, [])
+              (EqSet.of_list new_cs) r
+          in
+          let () =
+            List.iter
+              (function
+                | Assign ((V.Var csym), (Atom (V.Val c2))) -> (
+                    match V.Solution.find_opt csym sol with
+                    | None -> ()
+                    | Some c1 -> if not (V.Cst.eq c1 c2) then raise Contradiction)
+                | _ -> ())
+              cs
+          in
+          Maybe ()
+        with Contradiction -> NoSolns
 
   end

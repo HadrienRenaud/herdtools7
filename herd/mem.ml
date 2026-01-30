@@ -187,7 +187,7 @@ module Make(C:Config) (S:Sem.Semantics) : S with module S = S	=
       | Speed.False -> false
       | Speed.True | Speed.Fast -> true
 
-  let _profile = C.debug.Debug_herd.profile_asl
+  let _profile = C.debug.Debug_herd.profile_mem
   let start_profile = if _profile then Sys.time else fun () -> 0.
   let end_profile = if _profile then end_profile else fun _ _ -> ()
 
@@ -798,6 +798,7 @@ let map_loc_find loc m =
   with Not_found -> []
 
 let match_reg_events es =
+  profile "match_reg_events" @@ fun () ->
   let loc_loads = U.collect_reg_loads es
   and loc_stores = U.collect_reg_stores es
   (* Share computation of the iico relation *)
@@ -890,6 +891,7 @@ let match_reg_events es =
       fun loc -> A.LocMap.find_opt loc map
 
     let do_solve_regs test es csn =
+      profile "do_solve_regs" @@ fun () ->
       let wanted_final_values =
         if speedcheck then wanted_final_value test else Fun.const None
       in
@@ -933,6 +935,7 @@ let match_reg_events es =
               csn )
 
     let solve_regs test es csn =
+      profile "solve_regs" @@ fun () ->
       match do_solve_regs test es csn with
       | Some (es, rfm, cns) as r ->
           if debug_solver && C.verbose > 0 then begin
@@ -1067,9 +1070,9 @@ let match_reg_events es =
         let v_written = get_written store and v_read = get_read load in
         if not (V.equalityPossible v_written v_read) then false else
           let eq = VC.Assign (v_read, VC.Atom v_written) in
-          match VC.solve (eq :: cns) with
+          match VC.hint_solve [eq] cns with
           | VC.NoSolns -> false
-          | VC.Maybe _ -> true
+          | VC.Maybe () -> true
 
 (* Consider all stores that may feed a load
    - Compatible location.
