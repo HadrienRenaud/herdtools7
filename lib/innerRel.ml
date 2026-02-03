@@ -119,6 +119,7 @@ module type S =  sig
 
 (* Strongly connected compoments, processed in inverse dependency order. *)
   val scc_kont : (elt0 list -> 'a -> 'a) -> 'a -> Elts.t -> t -> 'a
+  val scc_kont_map : (elt0 list -> 'a -> 'a) -> 'a -> Elts.t -> M.map -> 'a
 
 
 (* Is the parent relation of a hierarchy *)
@@ -401,8 +402,7 @@ and module Elts = MySet.Make(O) =
               (res,{id=0; visit=NodeMap.empty; stack=[];} ) in
           res
 (* Graph is given as set of notes + relation *)
-        let scan_nodes_rel kont kont_scc res nodes edges =
-          let m = to_map edges in
+        let scan_nodes_rel kont kont_scc res nodes m =
           let dfs = dfs kont kont_scc m in
           let (res,_) =
             Elts.fold
@@ -722,10 +722,14 @@ and module Elts = MySet.Make(O) =
       nss
 
 (* Function kont will be called on all SCC, including trivial ones *)    
-    let scc_kont kont res nodes edges =
+    let scc_kont_map kont res nodes edges =
       let kont _ _ r = r
       and kont_scc _ ns r = kont ns r in
       M.FullSCC.scan_nodes_rel kont kont_scc res nodes edges
+
+    let scc_kont kont res nodes edges =
+      scc_kont_map kont res nodes (M.to_map edges)
+
 
 (* Is the parent relation of a hierarchy *)
     let is_hierarchy nodes edges =

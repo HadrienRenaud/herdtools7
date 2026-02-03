@@ -129,6 +129,7 @@ module type S =  sig
 
 (* Strongly connected components, processed in inverse dependency order. *)
   val scc_kont : (elt0 list -> 'a -> 'a) -> 'a -> Elts.t -> t -> 'a
+  val scc_kont_map : (elt0 list -> 'a -> 'a) -> 'a -> Elts.t -> M.map -> 'a
 
 (* Is the parent relation of a hierarchy *)
   val is_hierarchy : Elts.t -> t -> bool

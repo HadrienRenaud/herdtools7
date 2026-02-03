@@ -552,9 +552,6 @@ let get_failed cns =
 
     module VarEnv = A.V.Solution
 
-    let env_find csym m =
-      try VarEnv.find csym m with Not_found -> []
-
     let env_add csym c =
       VarEnv.update csym @@
         function
@@ -573,27 +570,27 @@ let get_failed cns =
     module EqRel = InnerRel.Make(OrderedEq)
 
     let debug_topo chan ns r =
-      EqRel.scc_kont
+      EqRel.scc_kont_map
         (fun cs () ->
           Printf.fprintf chan "{%s}\n%!"
             (List.map pp_cnstrnt cs |> String.concat ", "))
         ()
         ns r
 
-    let eq2g cs =
-      let m = var2eq cs in
-      let add_rels eq0 e g =
-        let add_rel csym g =
-          let eqs = env_find csym m in
-          List.fold_left (fun g eq -> (eq0,eq) :: g) g eqs
-        in
-        fold_vars_expr add_rel e g in
+    let eq2g cs: EqRel.M.map =
+      let get_succs m e =
+        fold_vars_expr
+          (fun csym acc -> try VarEnv.find csym m :: acc with Not_found -> acc)
+          e []
+        |> EqSet.unions
+      in
+      let m = var2eq cs |> VarEnv.map (EqSet.of_list) in
       List.fold_left
-        (fun rel c ->
-          match c with
-          | Assign (_,e)  -> add_rels c e rel
-          | Warn _|Failed _ -> rel) [] cs
-      |> EqRel.of_list
+        (fun map c ->
+           match c with
+           | Assign (_, e) -> EqRel.M.ME.add c (get_succs m e) map
+           | Warn _ | Failed _ -> map)
+        EqRel.M.ME.empty cs
 
     (** [solv_one c sol eqs], where c is an equation, [sol] is a solution
      *   (map from variables to constants) and [eqs] is a list of equations,
@@ -676,7 +673,7 @@ let get_failed cns =
             (fun chan (c1,c2) ->
               fprintf chan "(%s) <- (%s)\n"
                 (pp_cnstrnt c1) (pp_cnstrnt c2))
-            r
+            (EqRel.M.of_map r)
         end ;
 (*
         eprintf "** Equations **\n%!" ;
@@ -685,7 +682,7 @@ let get_failed cns =
         eprintf "** Equations ordered**\n%!" ;
         debug_topo stderr ns r
       end ;
-      EqRel.scc_kont topo_step (V.Solution.empty,[]) ns r
+      EqRel.scc_kont_map topo_step (V.Solution.empty,[]) ns r
 
     let solve_topo cs =
       (* Replace equivalent variables by a class representative *)
@@ -696,7 +693,7 @@ let get_failed cns =
           let sol,cs = solve_topo_step cs in
           (* Additional substitution step on lhs only.
              Namely, there can be several constraints whose lhs
-             are the same variable, one of which  has been solved *)
+             are the same variable, one of which has been solved *)
           let cs =
             List.fold_left
               (fun cs c ->
@@ -745,7 +742,7 @@ let get_failed cns =
         try
           let r = eq2g cs in
           let sol, cs =
-            EqRel.scc_kont topo_step (V.Solution.empty, [])
+            EqRel.scc_kont_map topo_step (V.Solution.empty, [])
               (EqSet.of_list new_cs) r
           in
           let () =
