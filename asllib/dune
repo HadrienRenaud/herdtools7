@@ -72,7 +72,7 @@
  (name asllib)
  (modules
   (:standard \ aslref primitives_to_ml))
- (public_name aslref)
+ (public_name aslref.lib)
  (private_modules Parser0 Gparser0 Lexer0 SimpleLexer0 RepeatableLexer)
  (modules_without_implementation Backend AST ParserConfig)
  (flags
