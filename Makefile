@@ -41,7 +41,7 @@ just-build: Version.ml
 	dune build -j $(J) --profile $(DUNE_PROFILE)
 
 build-release: Version.ml
-	dune build -j $(J) -p herdtools7 @install
+	dune build -j $(J) -p aslref,herdtools7 @install
 
 build: check-deps | just-build
 
