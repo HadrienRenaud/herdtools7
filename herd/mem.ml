@@ -769,21 +769,21 @@ let find_matching_store is_before_strict load stores =
   let n = Array.length stores in
   let one_possibility i =
       let elt = stores.(i) in
-      if is_before_strict elt load then Some elt else None
+      if is_before_strict elt load then S.Store elt else S.Init
   in
   let rec find min max =
     if min = max || max = 0 || min + 1 = n then one_possibility min
     else if min + 1 = max then
       let elt = stores.(max) in
-      if is_before_strict elt load then Some elt else one_possibility min
+      if is_before_strict elt load then S.Store elt else one_possibility min
     else
       let mid = (min + max) / 2 in
       let elt = stores.(mid) in
       if is_before_strict elt load then find mid max else find min mid
   in
-  if n = 0 then None else find 0 n
+  if n = 0 then S.Init else find 0 n
 
-let match_reg_events es =
+let match_reg_events add_eq es csn =
   let loc_loads_stores = U.collect_reg_loads_stores es in
   let is_before_strict = U.is_before_strict es in
   let compare e1 e2 =
@@ -796,28 +796,27 @@ let match_reg_events es =
       in
       assert false
   in
+  let add wt rf (rfm, csn) =
+    (S.RFMap.add wt rf rfm, add_eq rfm wt rf csn)
+  in
   (* For all loads find the right store, the one "just before" the load *)
   U.LocEnv.fold
     (fun loc (loads, stores) k ->
+      (* We sort the stores by order from is_before_strict *)
       let stores = Array.of_list stores in
       let n = Array.length stores in
       let () = Array.sort compare stores in
+      (* Add the final value *)
       let k =
-        if n = 0 then k
-        else
-          let store = Array.get stores (n - 1) in
-          S.RFMap.add (S.Final loc) (S.Store store) k
+        if n = 0 then k else add (S.Final loc) (S.Store (stores.(n - 1))) k
       in
+      (* Add the corresponding store for each load *)
       List.fold_left
         (fun k load ->
-          let rf =
-            match find_matching_store is_before_strict load stores with
-            | None -> S.Init
-            | Some store -> S.Store store
-          in
-          S.RFMap.add (S.Load load) rf k)
+          let rf = find_matching_store is_before_strict load stores in
+          add (S.Load load) rf k)
         k loads)
-    loc_loads_stores S.RFMap.empty
+    loc_loads_stores (S.RFMap.empty, csn)
 
 let get_rf_value test read =
   let look_address = A.look_address_in_state test.Test_herd.init_state in
@@ -851,34 +850,31 @@ let get_rf_value test read =
 
     let debug_solver = C.debug.Debug_herd.solver > 0
 
-    let do_solve_regs test es csn =
+    (* Add the equations given by one read-from register pairing *)
+    let add_eq_for_rf_reg test es rfm wt rf csn =
+      match wt with
+      | S.Final _ -> csn
+      | S.Load load ->
+        let v_loaded = get_read load
+        and v_stored = get_rf_value test load rf in
+        try add_eq v_loaded v_stored csn
+        (* The following shouldn't happen, unless mistake in the semantics. *)
+        with Contradiction ->
+          let loc = Misc.as_some (E.location_of load) in
+          let () =
+            Printf.eprintf "Contradiction on reg %s: loaded %s vs. stored %s\n"
+              (A.pp_location loc) (A.V.pp_v v_loaded) (A.V.pp_v v_stored)
+          in
+          let module PP = Pretty.Make(S) in
+          let () = PP.show_es_rfm test es rfm in
+          assert false
 
-      let rfm = match_reg_events es in
-      let csn =
-        S.RFMap.fold
-          (fun wt rf csn -> match wt with
-          | S.Final _ -> csn
-          | S.Load load ->
-              let v_loaded = get_read load in
-              let v_stored = get_rf_value test load rf in
-              try add_eq v_loaded v_stored csn
-              with Contradiction ->
-                let loc = Misc.as_some (E.location_of load) in
-                Printf.eprintf
-                  "Contradiction on reg %s: loaded %s vs. stored %s\n"
-                  (A.pp_location loc)
-                  (A.V.pp_v v_loaded)
-                  (A.V.pp_v v_stored) ;
-                let module PP = Pretty.Make(S) in
-                PP.show_es_rfm test es rfm ;
-                assert false)
-          rfm csn in
-      if  debug_solver then
-        prerr_endline "++ Solve  registers" ;
+    let do_solve_regs test es csn =
+      let rfm, csn = match_reg_events (add_eq_for_rf_reg test es) es csn in
+      if  debug_solver then prerr_endline "++ Solve  registers" ;
       match VC.solve csn with
       | VC.NoSolns ->
-         if debug_solver then
-           pp_nosol "register" test es rfm ;
+         if debug_solver then pp_nosol "register" test es rfm ;
          None
       | VC.Maybe (sol,csn) ->
           Some
