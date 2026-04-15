@@ -3,12 +3,12 @@
 {1 Disclaimer}
 This material covers:
 
-- ASLv0, viz the existing ASL pseudocode language which appeared in the Arm
+- ASL0, viz the existing ASL pseudocode language which appeared in the Arm
   Architecture Reference Manual:
   {:https://developer.arm.com/documentation/ddi0487/latest}
-- ASLv1, a new, experimental version of ASL. In addition to making
+- ASL1.0, a new version of ASL. In addition to making
   contributions to this repository, Arm officially maintains and regularly
-  releases the ASL Reference Specification for ASLv1 at
+  releases the ASL Reference Specification for ASL1.0 at
   {:https://developer.arm.com/Architectures/Architecture%20Specification%20Language}
 
 We welcome feedback, questions, and feature requests — please contact us by
