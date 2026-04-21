@@ -33,9 +33,6 @@ let asl_iico_ctrl = iico_ctrl
 let asl_iico_data = iico_data
 let asl_rf_reg = rf-reg
 let asl_rf = rf
-(* Warning, partial_po is _implicitely_ transitive *)
-let asl_po = as_transitive (partial_po)
-
 
 (*********************)
 (* Working relations *)
@@ -56,13 +53,12 @@ let aarch64_iico_data = [AArch64 & (R | Rreg)]; asl_deps; [AArch64]
 let aarch64_iico_ctrl = [B]; asl_ctrl_deps; [AArch64]
 
 (* Intra-instruction Order dependencies *)
-let asl_fr = asl_po & ([R] ; loc ; [W])
-let aarch64_iico_order = asl_fr
+let aarch64_iico_order = [AArch64]; partial_po+; [AArch64]
 
 let aarch64_intrinsic = aarch64_iico_ctrl | aarch64_iico_data | aarch64_iico_order
 
 (* Tests *)
-acyclic (aarch64_intrinsic | partial_po) as asl_determinism
+flag ~acyclic (aarch64_intrinsic | partial_po) as violates_asl_determinism
 
 
 (**************)
