@@ -3,6 +3,7 @@
 
 (executables
  (names diymicro diymicroenum)
+ (package herdtools7)
  (public_names diymicro7 diymicroenum7)
  (libraries herdtools unix))
 
