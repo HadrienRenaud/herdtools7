@@ -6,4 +6,4 @@
  (name menhir2bnfc)
  (allow_empty)
  (depends
-  (menhir (>= 20231231))))
+  (menhir (>= 20230608))))
