@@ -97,5 +97,6 @@
   cat2lisp
   dot2desc7
   cat2table7)
+ (package herdtools7)
  (libraries herdtools unix str)
  (modules_without_implementation arch_tools))

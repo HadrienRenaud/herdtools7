@@ -27,6 +27,7 @@
   diy7
   norm7)
  (libraries herdtools unix gen_common)
+ (package herdtools7)
  (modules_without_implementation
   archLoc
   archRun

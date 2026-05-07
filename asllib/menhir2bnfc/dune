@@ -4,8 +4,6 @@
  (flags -w -9)
  (optional)
  (package menhir2bnfc)
- (enabled_if
-  (>= %{ocaml_version} 4.14))
  (libraries aslref menhirSdk))
 
 (executable
@@ -13,8 +11,6 @@
  (name menhir2bnfc)
  (modules menhir2bnfc)
  (optional)
- (enabled_if
-  (>= %{ocaml_version} 4.14))
  (package menhir2bnfc)
  (libraries menhir2bnfc_lib)
  (promote

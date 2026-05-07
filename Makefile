@@ -41,10 +41,11 @@ Version.ml:
 	sh ./version-gen.sh $(PREFIX)
 
 just-build: Version.ml
-	dune build -j $(J) --profile $(DUNE_PROFILE)
+	dune build -j $(J) --profile $(DUNE_PROFILE) -p aslref,herdtools7
+	dune build -j $(J) --profile $(DUNE_PROFILE) internal
 
 build-release: Version.ml
-	dune build -j $(J) -p herdtools7 @install
+	dune build -j $(J) -p aslref,herdtools7 @install
 
 build: check-deps | just-build
 
@@ -97,7 +98,7 @@ test:: dune-test
 
 dune-test:
 	@ echo
-	dune runtest --profile=$(DUNE_PROFILE)
+	dune runtest --profile=$(DUNE_PROFILE) -p aslref,herdtools7
 
 test-all:: test.aarch64assumptions
 test-local:: test.aarch64assumptions
@@ -438,7 +439,7 @@ aarch32-test::
 
 test-bnfc:
 	@ echo
-	dune runtest asllib/menhir2bnfc
+	dune runtest asllib/menhir2bnfc -p aslref,menhir2bnfc
 	@ echo "BNFC tests: OK"
 
 test:: test.pac

@@ -14,6 +14,7 @@
 (executables
  (names litmus klitmus)
  (public_names litmus7 klitmus7)
+ (package herdtools7)
  (libraries herdtools)
  (modules_without_implementation
   answer
