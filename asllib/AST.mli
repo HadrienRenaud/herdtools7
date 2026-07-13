@@ -50,6 +50,22 @@ type precision_loss_flag =
       (** A loss of precision comes with a list of warnings that can explain why
           the loss of precision happened. *)
 
+type ('a, 't) t_annotated = {
+  desc : 'a;
+  pos_start : position;
+  pos_end : position;
+  version : version;
+  ty_opt : 't option;
+      (** An optional type annotation, added only to typed versions of [expr]
+          and [lexpr] types. This is added by the typechecker once the type is
+          inferred, and never used by the typechecker itself. In particular,
+          expressions synthesized by the typechecker are not associated with a
+          type annotation. The intended usage is for tools built on top of
+          aslref. *)
+}
+
+type 'a annotated = ('a, unit) t_annotated
+
 (* -------------------------------------------------------------------------
 
                                    Operations
@@ -139,20 +155,6 @@ type subprogram_type =
       (** A setter is a special procedure called with a syntax similar to slice
           assignment. *)
 
-type 'a annotated = {
-  desc : 'a;
-  pos_start : position;
-  pos_end : position;
-  version : version;
-  ty_opt : ty option;
-      (** An optional type annotation, added only to typed versions of [expr]
-          and [lexpr] types. This is added by the typechecker once the type is
-          inferred, and never used by the typechecker itself. In particular,
-          expressions synthesized by the typechecker are not associated with a
-          type annotation. The intended usage is for tools built on top of
-          aslref. *)
-}
-
 (** Expressions. Parametric on the type of literals. *)
 and expr_desc =
   | E_Literal of literal
@@ -179,7 +181,7 @@ and expr_desc =
   | E_Arbitrary of ty
   | E_Pattern of expr * pattern_matcher
 
-and expr = expr_desc annotated
+and expr = (expr_desc, ty) t_annotated
 
 and pattern_desc =
   | Pattern_All
@@ -301,7 +303,7 @@ type lexpr_desc =
           Third argument is a type annotation. *)
   | LE_Destructuring of lexpr list
 
-and lexpr = lexpr_desc annotated
+and lexpr = (lexpr_desc, ty) t_annotated
 
 type local_decl_keyword = LDK_Var | LDK_Let
 

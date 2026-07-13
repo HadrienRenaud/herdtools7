@@ -189,7 +189,7 @@ module Make (B : Backend.S) (C : Config) = struct
   let ( >>*= ) = B.bind_ctrl
 
   (* Choice *)
-  let choice ~pos env m v1 v2 =
+  let choice ~(pos : _ t_annotated) env m v1 v2 =
     let next (res, decision, v) =
       let env =
         if C.track_symbolic_path && B.is_undetermined v then

@@ -73,13 +73,13 @@ let add_dummy_annotation ?(version = default_version) desc =
   annotated desc dummy_pos dummy_pos version
 
 let dummy_annotated = add_dummy_annotation ()
-let to_pos pos = { pos with desc = () }
+let to_pos pos = { pos with desc = (); ty_opt = None }
 let is_dummy_annotated x = x.pos_end == dummy_pos || x.pos_start == dummy_pos
 
 let add_pos_from_st pos desc =
   if pos.desc == desc then pos else { pos with desc }
 
-let add_pos_from pos desc = { pos with desc }
+let add_pos_from pos desc = { pos with desc; ty_opt = None }
 
 let add_pos_range_from pos_from pos_to desc =
   let () = assert (pos_from.version = pos_to.version) in
@@ -189,8 +189,7 @@ let map2_desc f thing1 thing2 =
     pos_start = thing1.pos_start;
     pos_end = thing2.pos_end;
     version = thing1.version;
-    ty_opt =
-      (match thing1.ty_opt with Some t1 -> Some t1 | None -> thing2.ty_opt);
+    ty_opt = None;
   }
 
 let s_pass = add_dummy_annotation S_Pass

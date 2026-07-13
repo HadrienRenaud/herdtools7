@@ -106,7 +106,7 @@ val desugar_setter_setfields :
    ------------------------------------------------------------------------- *)
 
 val desugar_case_stmt :
-  expr_desc annotated -> case_alt_desc annotated list -> stmt -> stmt_desc
+  expr -> case_alt_desc annotated list -> stmt -> stmt_desc
 (** [desugar_case_stmt e0 cases otherwise] desugars a case statement for the
     discriminant expression [e0], case alternatives [cases], and otherwise
     statement [otherwise]. The result is a conditional statement, possibly
