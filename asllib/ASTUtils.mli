@@ -221,7 +221,9 @@ val div_expr : expr -> Z.t -> expr
 
 val add_expr : expr -> int * expr -> expr
 (** [add_expr e1 (s, e2)] is an expression representing [e1 + sign(s) * e2].
-    [e2] is expected to be non-negative. *)
+    [e2] is expected to be non-negative.
+
+    [integer] type annotation is added to the result. *)
 
 val conj_expr : expr -> expr -> expr
 (** [conj_expr e1 e2] is an expression representing [e1 && e2]. *)

@@ -464,6 +464,8 @@ let expr_of_rational q =
 (** [mul_expr e1 e2] symbolically multiplies the two expression [e1] and [e2].
 *)
 let mul_expr e1 e2 =
+  with_ty_annot integer
+  @@
   if expr_equal (fun _ _ -> false) e1 one_expr then e2
   else if expr_equal (fun _ _ -> false) e2 one_expr then e1
   else binop `MUL e1 e2
@@ -475,10 +477,13 @@ let pow_expr e = function
   | 2 -> mul_expr e e
   | p -> binop `POW e (expr_of_int p)
 
-let div_expr e z = if Z.equal z Z.one then e else binop `DIV e (expr_of_z z)
+let div_expr e z =
+  with_ty_annot integer
+  @@ if Z.equal z Z.one then e else binop `DIV e (expr_of_z z)
 
 let add_expr e1 (s, e2) =
-  if s = 0 then e1 else if s > 0 then binop `ADD e1 e2 else binop `SUB e1 e2
+  with_ty_annot integer
+  @@ if s = 0 then e1 else if s > 0 then binop `ADD e1 e2 else binop `SUB e1 e2
 
 let conj_expr e1 e2 =
   let lit_true = literal (L_Bool true) in

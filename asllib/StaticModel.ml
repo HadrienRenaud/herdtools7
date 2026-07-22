@@ -55,7 +55,7 @@ end = struct
     AtomMap.merge (fun _ -> divide_unitary) mono1 mono2
 
   let to_scaled_expr monos factor =
-    let start = expr_of_z (Q.num factor) in
+    let start = expr_of_z (Q.num factor) |> with_ty_annot integer in
     let numerator =
       AtomMap.fold
         (fun atom exponent acc ->
@@ -157,7 +157,7 @@ end = struct
         else
           let e_m = Monomial.to_scaled_expr m (Q.abs c) in
           add_expr acc (Q.sign c, e_m))
-      zero_expr
+      (with_ty_annot integer zero_expr)
       (MonomialMap.bindings poly |> List.rev)
 
   let pp f poly =
