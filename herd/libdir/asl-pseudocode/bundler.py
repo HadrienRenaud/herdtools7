@@ -161,12 +161,7 @@ def header_of_tree(root: Element, o_path: Optional[Path] = None) -> str:
     elif root_type == "register":
         reg_short_name = root.find("reg_short_name").text
         reg_long_name = read_reg_longname(root)
-        titles = [
-            reg_long_name
-            + " ("
-            + reg_short_name
-            + ")"
-        ]
+        titles = [reg_long_name + " (" + reg_short_name + ")"]
 
     else:
         titles = [root.get("title")]
@@ -1167,7 +1162,8 @@ def generate_array_accessors(
         ]
 
     variable_names = [
-        variable_prefix + reg_name.replace(to_replace, str(i)) for i in range(reg_min, reg_max + 1)
+        variable_prefix + reg_name.replace(to_replace, str(i))
+        for i in range(reg_min, reg_max + 1)
     ]
 
     getter_case_body = "\n".join(
@@ -1248,7 +1244,10 @@ def build_global_variable_declarations(
             accessor_names = [reg_name]
 
         declarations.extend(
-            (f"var {variable_prefix}{variable_name}: {type_name};" for variable_name in accessor_names)
+            (
+                f"var {variable_prefix}{variable_name}: {type_name};"
+                for variable_name in accessor_names
+            )
         )
         declarations.extend(
             (
