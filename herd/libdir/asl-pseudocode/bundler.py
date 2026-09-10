@@ -414,21 +414,16 @@ def make_funs(args: argparse.Namespace):
     mkdirp(args.o_dir)
 
     with ThreadPoolExecutor(max_workers=args.jobs) as executor:
-        future_strings = (
-            executor.submit(one_instruction_to_string, i_file)
-            for i_file in args.i_files
-        )
+        strings = executor.map(one_instruction_to_string, args.i_files)
 
-        if args.o_dir.is_dir():
-            o_file = args.o_dir / "instructions.asl"
-        else:
-            o_file = args.o_dir
+    if args.o_dir.is_dir():
+        o_file = args.o_dir / "instructions.asl"
+    else:
+        o_file = args.o_dir
 
-        with open(o_file, "w", encoding="utf8") as f:
-            f.write(MESSAGE_ON_TOP)
-
-            for future_string in as_completed(future_strings):
-                f.write(future_string.result())
+    with open(o_file, "w", encoding="utf8") as f:
+        f.write(MESSAGE_ON_TOP)
+        f.writelines(strings)
 
 
 def process_one_instruction_to_a_file(i_file: Path, o_dir: Path):
@@ -1433,27 +1428,20 @@ def make_regs(args: argparse.Namespace):
 
         with open(o_file, "w", encoding="utf8") as f:
             f.write(MESSAGE_ON_TOP)
-
-            for res in results:
-                f.write(res)
+            f.writelines(results)
 
     else:
         with ThreadPoolExecutor(max_workers=args.jobs) as executor:
-            future_strings = (
-                executor.submit(
-                    process_one_reg_file,
-                    i_file,
-                    args.use_array_variables,
-                    variable_prefix,
-                )
-                for i_file in args.i_files
+            strings = executor.map(
+                process_one_reg_file,
+                args.i_files,
+                itertools.repeat(args.use_array_variables),
+                itertools.repeat(variable_prefix),
             )
 
-            with open(o_file, "w", encoding="utf8") as f:
-                f.write(MESSAGE_ON_TOP)
-
-                for future_string in as_completed(future_strings):
-                    f.write(future_string.result())
+        with open(o_file, "w", encoding="utf8") as f:
+            f.write(MESSAGE_ON_TOP)
+            f.writelines(strings)
 
 
 def get_all_paths(paths: Iterable[Path]) -> list[Path]:
